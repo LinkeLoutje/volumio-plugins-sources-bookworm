@@ -24,6 +24,22 @@ function NfcMusic(context) {
     this.tagHandler = null;
 }
 
+NfcMusic.prototype.onVolumioStart = function () {
+
+    const configFile =
+        this.commandRouter.pluginManager.getConfigurationFile(
+            this.context,
+            'config.json'
+        );
+
+    this.config = new (require('v-conf'))();
+    this.config.loadFile(configFile);
+
+    this.logger.info('NFC Music: Volumio gestart');
+
+    return libQ.resolve();
+};
+
 NfcMusic.prototype.onStart = function () {
 
     this.logger.info('NFC Music: plugin starten');
@@ -100,15 +116,7 @@ NfcMusic.prototype.onStart = function () {
 // ONSTOP
 NfcMusic.prototype.onStop = function () {
 
-    this.logger.info(
-        'NFC Music: TEST pcsclite stoppen'
-    );
-
-    this.logger.info(
-        'NFC Music: pcsc.close() wordt NIET uitgevoerd'
-    );
-
-    this.pcsc = null;
+    this.logger.info('NFC Music: plugin stoppen');
 
     return libQ.resolve();
 };

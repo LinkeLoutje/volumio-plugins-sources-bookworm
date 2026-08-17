@@ -1,0 +1,17 @@
+{
+    "53D9DE43140001": {
+        "name": "Good Feeling - lokaal",
+        "actions": [
+            {
+                "action": "playLocal",
+                "service": "mpd",
+                "type": "track",
+                "uri": "music-library/NAS/Samba-Muziek/library/Dominique Fils-Aimé - Stay Tuned! (2019)/01 - Good Feeling.flac",
+                "title": "Good Feeling",
+                "artist": "Dominique Fils-Aimé",
+                "album": "Stay Tuned!",
+                "trackType": "flac"
+            }
+        ]
+    }
+}
