@@ -39,12 +39,12 @@ function createTagHandler(options = {}) {
                     await player.playLocal(action);
                     break;
 
-/*                case 'playLocalAlbum':
+                case 'playLocalAlbum':
                     await player.playLocalAlbum(
                         action.artist,
                         action.album
                     );
-                    break; */
+                    break;
 
                 default:
                     throw new Error(

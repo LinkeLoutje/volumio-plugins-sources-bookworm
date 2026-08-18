@@ -61,13 +61,22 @@ class Player {
         for (const list of lists) {
             const items = list.items || [];
 
+            // 🔍 DEBUG: wat komt er überhaupt terug?
+        for (const item of items) {
+        this.logger.info(
+            `CHECK: type=${item.type} | title=${item.title} | artist=${item.artist}`
+        );
+    }
+
             albumItem = items.find(item =>
-                item.type === 'folder' &&
-                item.artist === artist &&
-                item.title === album
+                item.title &&
+                item.title.toLowerCase() === album.toLowerCase()
             );
 
             if (albumItem) {
+                this.logger.info(
+                    `MATCH GEVONDEN: ${albumItem.title} | ${albumItem.uri}`
+                );
                 break;
             }
         }
@@ -95,7 +104,7 @@ class Player {
     }
 
 
-// EInde lokaal album starten
+// Einde lokaal album starten
 
 
 

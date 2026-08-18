@@ -1,5 +1,5 @@
 {
-    "53D9DE43140001": {
+    "53D9DE43140002": {
         "name": "Good Feeling - lokaal",
         "actions": [
             {
@@ -13,5 +13,34 @@
                 "trackType": "flac"
             }
         ]
-    }
+    },
+    "53D9DE43140001": {
+        "name": "Beauty In Your Wake",
+        "actions": [
+            {
+                "action": "playLocalAlbum",
+                "artist": "Fink",
+                "album": "Beauty In Your Wake"
+            }
+        ]
+    },
+    "04A1B2C3D4": {
+        "name": "Test Spotify playlist",
+        "actions": [
+            {
+                "action": "playSpotify",
+                "uri": "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
+            }
+        ]
+    },
+    "04A1B2C3D3": {
+        "name": "Test Spotify album",
+        "actions": [
+            {
+                "action": "playSpotify",
+                "uri": "spotify:album:1ATL5GLyefJaxhQzSPVrLX"
+            }
+        ]
+  }
+
 }
