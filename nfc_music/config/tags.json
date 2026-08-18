@@ -1,46 +1,48 @@
 {
-    "53D9DE43140002": {
-        "name": "Good Feeling - lokaal",
-        "actions": [
-            {
-                "action": "playLocal",
-                "service": "mpd",
-                "type": "track",
-                "uri": "music-library/NAS/Samba-Muziek/library/Dominique Fils-Aimé - Stay Tuned! (2019)/01 - Good Feeling.flac",
-                "title": "Good Feeling",
-                "artist": "Dominique Fils-Aimé",
-                "album": "Stay Tuned!",
-                "trackType": "flac"
-            }
-        ]
-    },
-    "53D9DE43140001": {
-        "name": "Beauty In Your Wake",
-        "actions": [
-            {
-                "action": "playLocalAlbum",
-                "artist": "Fink",
-                "album": "Beauty In Your Wake"
-            }
-        ]
-    },
-    "04A1B2C3D4": {
-        "name": "Test Spotify playlist",
-        "actions": [
-            {
-                "action": "playSpotify",
-                "uri": "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
-            }
-        ]
-    },
-    "04A1B2C3D3": {
-        "name": "Test Spotify album",
-        "actions": [
-            {
-                "action": "playSpotify",
-                "uri": "spotify:album:1ATL5GLyefJaxhQzSPVrLX"
-            }
-        ]
-  }
+  "53D9DE43140001": {
+    "name": "Good Feeling",
+    "actions": [
+      {
+        "action": "play",
+        "type": "track",
+        "source": "local",
+        "data": {
+          "uri": "music-library/NAS/Samba-Muziek/library/Dominique Fils-Aimé - Stay Tuned! (2019)/01 - Good Feeling.flac",
+          "title": "Good Feeling",
+          "artist": "Dominique Fils-Aimé",
+          "album": "Stay Tuned!",
+          "trackType": "flac"
+        }
+      }
+    ]
+  },
 
+  "5392EB43140001": { 
+    "name": "Beauty In Your Wake",
+    "actions": [
+      {
+        "action": "play",
+        "type": "album",
+        "source": "local",
+        "data": {
+          "artist": "Fink",
+          "album": "Beauty In Your Wake"
+        }
+      }
+    ]
+  },
+
+  "04A1B2C3D3": {
+    "name": "Test playlist",
+    "actions": [
+      {
+        "action": "play",
+        "type": "playlist",
+        "source": "local",
+        "data": {
+          "name": "Chill"
+        }
+      }
+    ]
+  }
 }

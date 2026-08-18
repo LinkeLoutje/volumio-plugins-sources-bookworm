@@ -1,62 +1,54 @@
 'use strict';
 
-function createTagHandler(options = {}) {
+async function handleTagAction(action, player, logger) {
 
-    const player = options.player;
-    const logger = options.logger || console;
-    const tags = options.tags || {};
+    switch (action.action) {
 
-    async function handleTag(uid) {
+        case 'play':
+            await handlePlay(action, player, logger);
+            break;
 
-        const tag = tags[uid];
+        case 'pause':
+            await player.pause?.();
+            break;
 
-        if (!tag) {
-            logger.info(
-                `NFC Music: onbekende tag: ${uid}`
-            );
-            return;
-        }
+        case 'next':
+            await player.next?.();
+            break;
 
-        logger.info(
-            `NFC Music: tag "${tag.name}" gevonden`
-        );
+        case 'previous':
+            await player.previous?.();
+            break;
 
-        if (!Array.isArray(tag.actions)) {
-            throw new Error(
-                `Geen actions gedefinieerd voor tag ${uid}`
-            );
-        }
-
-        for (const action of tag.actions) {
-
-            logger.info(
-                `NFC Music: actie: ${action.action}`
-            );
-
-            switch (action.action) {
-
-                case 'playLocal':
-                    await player.playLocal(action);
-                    break;
-
-                case 'playLocalAlbum':
-                    await player.playLocalAlbum(
-                        action.artist,
-                        action.album
-                    );
-                    break;
-
-                default:
-                    throw new Error(
-                        `Onbekende action: ${action.action}`
-                    );
-            }
-        }
+        default:
+            throw new Error(`Onbekende action: ${action.action}`);
     }
-
-    return {
-        handleTag
-    };
 }
 
-module.exports = createTagHandler;
+async function handlePlay(action, player, logger) {
+
+    const { type, source = 'local', data } = action;
+
+    logger.info(`NFC Music: play request -> type=${type}, source=${source}`);
+
+    switch (type) {
+
+        case 'track':
+            return await player.playTrack
+                ? player.playTrack(data)
+                : player.playLocal(data);
+
+        case 'album':
+            return await player.playAlbum(data);
+
+        case 'playlist':
+            return await player.playPlaylist(data);
+
+        default:
+            throw new Error(`Onbekend type: ${type}`);
+    }
+}
+
+module.exports = {
+    handleTagAction
+};

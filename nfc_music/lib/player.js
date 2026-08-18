@@ -8,18 +8,20 @@ class Player {
         this.logger = options.logger || console;
     }
 
-// Een lokale track via Volumio MPD starten
-    async playLocal(track) {
+    // -----------------------------
+    // TRACK
+    // -----------------------------
+    async playTrack(track) {
 
         this.logger.info(
-            `NFC Music: lokale track starten: ${track.title}`
+            `NFC Music: track starten: ${track.title}`
         );
 
         const response = await axios.post(
             'http://127.0.0.1:3000/api/v1/replaceAndPlay',
             {
                 service: track.service || 'mpd',
-                type: track.type || 'track',
+                type: 'track',
                 uri: track.uri,
                 title: track.title,
                 artist: track.artist,
@@ -27,65 +29,67 @@ class Player {
                 trackType: track.trackType
             },
             {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' }
             }
         );
 
         this.logger.info(
-            `NFC Music: replaceAndPlay resultaat: HTTP ${response.status}`
+            `NFC Music: track gestart: HTTP ${response.status}`
         );
 
         return response.status === 200;
     }
-// Ende lokale track spelen
 
-// Een lokaal album zoeken en via Volumio starten
-    async playLocalAlbum(artist, album) {
-        // Zoek het album via de Volumio library
+    // fallback alias (oude compat)
+    async playLocal(track) {
+        return this.playTrack(track);
+    }
+
+    // -----------------------------
+    // ALBUM
+    // -----------------------------
+    async playAlbum(data) {
+
+        this.logger.info(
+            `NFC Music: album zoeken: ${data.artist} - ${data.album}`
+        );
+
         const searchResponse = await axios.get(
             'http://127.0.0.1:3000/api/v1/search',
             {
                 params: {
-                    query: album
+                    query: data.album
                 }
             }
         );
 
         const lists = searchResponse.data?.navigation?.lists || [];
 
-    // Zoek een album waarvan zowel artiest als album overeenkomen
         let albumItem = null;
 
         for (const list of lists) {
+
             const items = list.items || [];
 
-            // 🔍 DEBUG: wat komt er überhaupt terug?
-        for (const item of items) {
-        this.logger.info(
-            `CHECK: type=${item.type} | title=${item.title} | artist=${item.artist}`
-        );
-    }
-
             albumItem = items.find(item =>
-                item.title &&
-                item.title.toLowerCase() === album.toLowerCase()
+                item.type === 'folder' &&
+                item.artist === data.artist &&
+                item.title === data.album
             );
 
-            if (albumItem) {
-                this.logger.info(
-                    `MATCH GEVONDEN: ${albumItem.title} | ${albumItem.uri}`
-                );
-                break;
-            }
+            if (albumItem) break;
         }
 
         if (!albumItem) {
-            throw new Error(`Album niet gevonden: ${artist} - ${album}`);
+            throw new Error(
+                `Album niet gevonden: ${data.artist} - ${data.album}`
+            );
         }
 
-        // Gebruik de URI die Volumio zelf heeft gevonden
+        this.logger.info(
+            `NFC Music: album gevonden: ${albumItem.uri}`
+        );
+
         const response = await axios.post(
             'http://127.0.0.1:3000/api/v1/replaceAndPlay',
             {
@@ -94,20 +98,44 @@ class Player {
                 uri: albumItem.uri
             },
             {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Content-Type': 'application/json' }
             }
+        );
+
+        this.logger.info(
+            `NFC Music: album gestart: HTTP ${response.status}`
         );
 
         return response.status === 200;
     }
 
+    // -----------------------------
+    // PLAYLIST
+    // -----------------------------
+    async playPlaylist(data) {
 
-// Einde lokaal album starten
+        this.logger.info(
+            `NFC Music: playlist starten: ${data.name}`
+        );
 
+        const response = await axios.post(
+            'http://127.0.0.1:3000/api/v1/replaceAndPlay',
+            {
+                service: 'mpd',
+                type: 'playlist',
+                name: data.name
+            },
+            {
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
 
+        this.logger.info(
+            `NFC Music: playlist gestart: HTTP ${response.status}`
+        );
 
+        return response.status === 200;
+    }
 }
 
 module.exports = Player;

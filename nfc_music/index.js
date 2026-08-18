@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const Player = require('./lib/player');
-const createTagHandler = require('./lib/tag-handler');
+const { handleTagAction } = require('./lib/tag-handler');
 
 
 module.exports = NfcMusic;
@@ -53,13 +53,9 @@ NfcMusic.prototype.onStart = function () {
     });
 
     /*
-     * Tag handler initialiseren
+     * Tag handler initialiseren --> Verwijderd ivm refactor (Hint voor wanneer foutief. Later comment verwijderen.)
      */
-    this.tagHandler = createTagHandler({
-        player: this.player,
-        logger: this.logger,
-        tags: tags
-    });
+
 
     /*
      * NFC reader initialiseren
@@ -76,7 +72,16 @@ NfcMusic.prototype.onStart = function () {
 
             try {
 
-                await this.tagHandler.handleTag(uid);
+                    const tag = tags[uid];
+
+                    if (!tag) {
+                        this.logger.warn(`NFC Music: onbekende tag: ${uid}`);
+                        return;
+                    }
+
+                    for (const action of tag.actions) {
+                        await handleTagAction(action, this.player, this.logger);
+                    }
 
             } catch (error) {
 
