@@ -1,6 +1,7 @@
 'use strict';
 
 const axios = require('axios');
+const SpotifyPlayer = require('./spotify-player');
 
 class Player {
 
@@ -136,6 +137,75 @@ class Player {
 
         return response.status === 200;
     }
+
+    // -----------------------------
+    // SPOTIFY
+    // -----------------------------
+    async playSpotify(data) {
+
+        this.logger.info(
+            `NFC Music: Spotify starten type=${data.type} uri=${data.uri}`
+        );
+
+        switch (data.type) {
+
+            case 'track':
+                return await this.spotifyPlayTrack(data.uri);
+
+            case 'album':
+            case 'playlist':
+                return await this.spotifyPlayContext(data.uri);
+
+            default:
+                throw new Error(`Unknown Spotify type: ${data.type}`);
+        }
+    }
+
+    // -----------------------------
+    // SPOTIFY Helpers
+    // -----------------------------
+    async spotifyPlayTrack(uri) {
+        return this.spotifyCall({
+            uris: [uri]
+        });
+    }
+
+    async spotifyPlayContext(uri) {
+        return this.spotifyCall({
+            context_uri: uri
+        });
+    }
+    // Spotify core call
+    async spotifyCall(body) {
+
+        this.logger.info(
+            `Spotify API call: ${JSON.stringify(body)}`
+        );
+
+        const token = await this.getSpotifyToken();
+
+        const response = await axios.put(
+            'https://api.spotify.com/v1/me/player/play',
+            body,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        this.logger.info(
+            `Spotify response: ${response.status}`
+        );
+
+        return response.status === 204;
+    }
+    // Token hook (tijdelijke stub)
+    async getSpotifyToken() {
+        throw new Error('Wire spotify-auth/token-store here');
+    }
+
 }
 
 module.exports = Player;

@@ -5,20 +5,16 @@ async function handleTagAction(action, player, logger) {
     switch (action.action) {
 
         case 'play':
-            await handlePlay(action, player, logger);
-            break;
+            return await handlePlay(action, player, logger);
 
         case 'pause':
-            await player.pause?.();
-            break;
+            return await player.pause?.();
 
         case 'next':
-            await player.next?.();
-            break;
+            return await player.next?.();
 
         case 'previous':
-            await player.previous?.();
-            break;
+            return await player.previous?.();
 
         default:
             throw new Error(`Onbekende action: ${action.action}`);
@@ -29,24 +25,43 @@ async function handlePlay(action, player, logger) {
 
     const { type, source = 'local', data } = action;
 
-    logger.info(`NFC Music: play request -> type=${type}, source=${source}`);
+    logger.info(
+        `NFC Music: play -> type=${type}, source=${source}`
+    );
 
-    switch (type) {
+    // -------------------------
+    // LOCAL
+    // -------------------------
+    if (source === 'local') {
 
-        case 'track':
-            return await player.playTrack
-                ? player.playTrack(data)
-                : player.playLocal(data);
+        switch (type) {
 
-        case 'album':
-            return await player.playAlbum(data);
+            case 'track':
+                return await player.playTrack(data);
 
-        case 'playlist':
-            return await player.playPlaylist(data);
+            case 'album':
+                return await player.playAlbum(data);
 
-        default:
-            throw new Error(`Onbekend type: ${type}`);
+            case 'playlist':
+                return await player.playPlaylist(data);
+
+            default:
+                throw new Error(`Onbekend local type: ${type}`);
+        }
     }
+
+    // -------------------------
+    // SPOTIFY (nieuw pad)
+    // -------------------------
+    if (source === 'spotify') {
+
+        return await player.playSpotify({
+            type,
+            ...data
+        });
+    }
+
+    throw new Error(`Onbekende source: ${source}`);
 }
 
 module.exports = {

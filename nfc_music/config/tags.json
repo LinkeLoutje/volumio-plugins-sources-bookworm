@@ -44,5 +44,15 @@
         }
       }
     ]
+  },
+  "04A1B2C3D4": {
+    "name": "Spotify playlist",
+    "actions": [
+      {
+        "action": "playSpotify",
+        "type": "playlist",
+        "uri": "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"
+      }
+    ]
   }
 }
