@@ -11,7 +11,7 @@
 	"repository": "https://github.com/LinkeLoutje/volumio-plugins-sources-bookworm",
 	"volumio_info": {
 		"prettyName": "NFC Music",
-		"icon": "fa-lightbulb-o",
+		"icon": "fas fa-tags",
 		"plugin_type": "system_hardware",
 		"architectures": [
 			"amd64",

@@ -307,281 +307,460 @@ NfcMusic.prototype.onRestart = function () {
     return libQ.resolve();
 };
 
-// =====================================================
-// Plugin UI
-// =====================================================
+// ===========================================================
+// UI CONFIGURATIE (dynamisch opgebouwd)
+// ===========================================================
+
 NfcMusic.prototype.getUIConfig = function () {
-    const defer = libQ.defer();
+    var self = this;
+    var defer = libQ.defer();
 
-    this.logger.info(`ACTIVE TAG (UI): ${this.activeTag}`);
+    var lang_code = self.commandRouter.sharedVars.get('language_code');
 
-    let tags = this.tags;
-
-    // include runtime scanned tags only if needed
-    const scannedKeys = Object.keys(this.scannedTags || {});
-
-    if (scannedKeys.length > 0) {
-        tags = {
-            ...this.tags,
-            ...this.scannedTags
-        };
-    }
-
-    const tagKeys = Object.keys(tags);
-    const editingUid = this.activeEditTag;
-
-    this.commandRouter.i18nJson(
-        __dirname + '/i18n/strings_en.json',
+    self.commandRouter.i18nJson(
+        __dirname + '/i18n/strings_' + lang_code + '.json',
         __dirname + '/i18n/strings_en.json',
         __dirname + '/UIConfig.json'
-    )
-    .then(uiconf => {
+    ).then(function (uiconf) {
 
-        const section = uiconf.sections.find(s => s.id === "tags");
+        var sectionLastScanned = uiconf.sections[0];
+        var sectionPickExisting = uiconf.sections[1];
+        var sectionEditTag = uiconf.sections[2];
 
-        if (!section) {
-            this.logger.error("tags section niet gevonden");
-            defer.resolve(uiconf);
-            return;
-        }
-
-        /*
-        // Edit mode: show tag editor if a tag is being edited
-        */
-        if (editingUid && tags[editingUid]) {
-
-            const tag = tags[editingUid];
-
-            section.content = [
-                // 👇 FORM (alleen voor data binding, NIET voor UI)
-                {
-                    element: "form",
-                    id: "tagForm",
-                    content: [
-                        { id: "name", element: "input", value: tag.name || "" },
-                        { id: "type", element: "input", value: tag.actions?.[0]?.type || "album" },
-                        { id: "artist", element: "input", value: tag.actions?.[0]?.data?.artist || "" },
-                        { id: "album", element: "input", value: tag.actions?.[0]?.data?.album || "" }
-                    ]
-                },
-
-                // 👇 ZICHTBARE UI (los van form)
-                {
-                    element: "label",
-                    value: `Tag: ${editingUid}`
-                },
-                {
-                    id: "name",
-                    element: "input",
-                    label: "Naam",
-                    value: tag.name || ""
-                },
-                {
-                    id: "type",
-                    element: "select",
-                    label: "Type",
-                    value: tag.actions?.[0]?.type || "album",
-                    options: [
-                        { value: "album", label: "Album" },
-                        { value: "playlist", label: "Playlist" },
-                        { value: "spotify", label: "Spotify" }
-                    ]
-                },
-                {
-                    id: "artist",
-                    element: "input",
-                    label: "Artist",
-                    value: tag.actions?.[0]?.data?.artist || ""
-                },
-                {
-                    id: "album",
-                    element: "input",
-                    label: "Album / Playlist",
-                    value: tag.actions?.[0]?.data?.album || ""
-                },
-
-                {
-                    element: "button",
-                    label: "Save",
-                    onClick: {
-                        type: "controller",
-                        endpoint: "system_hardware/nfc_music",
-                        method: "saveTag",
-                        data: {
-                            name: "$name",
-                            type: "$type",
-                            artist: "$artist",
-                            album: "album"
-                        }
-                    }
-                },
-                {
-                    element: "button",
-                    label: "Annuleren",
-                    onClick: {
-                        type: "controller",
-                        endpoint: "system_hardware/nfc_music",
-                        method: "closeTagEditor"
-                    }
-                }
-            ];
-            this.logger.info(`UI in EDIT MODE voor ${editingUid}`);
-        }
-
-        /*
-        // List mode: show all tags with edit buttons
-        */
-        else {
-            section.content = tagKeys.map(uid => ({
-                id: uid,
-                element: "button",
-                label: `✏️ Edit: ${tags[uid].name || uid}`,
-                value: uid,
-                onClick: {
-                    type: "controller",
-                    endpoint: "system_hardware/nfc_music",
-                    method: "openTagEditor",
-                    data: { uid }
-                }
-            }));
-
-            this.logger.info(`UI in LIST MODE (${tagKeys.length} tags)`);
-        }
+        self.buildLastScannedSection(sectionLastScanned);
+        self.buildPickExistingSection(sectionPickExisting);
+        self.buildEditTagSection(sectionEditTag);
 
         defer.resolve(uiconf);
-    })
-    .fail(err => {
-        this.logger.error("UI ERROR " + err);
-        defer.reject(err);
+
+    }).fail(function (error) {
+        self.logger.error('NFC Music: getUIConfig faalde: ' + error);
+        defer.reject(new Error());
     });
 
     return defer.promise;
 };
 
-// =========================================================
-// TAG EXECUTION LAYER (core playback logic)
-// =========================================================
 
-/*
- * executeTag()
- * ---------------------------------------------------------
- * Entry point voor een gescande tag.
- * - ontvangt een volledige tag object
- * - kiest welke actie(s) uitgevoerd worden
- * - dispatch naar playback handlers
- */
-NfcMusic.prototype.executeTag = function (tag) {
+// -----------------------------------------------------------
+// Sectie 1: laatst gescande tag
+// -----------------------------------------------------------
+NfcMusic.prototype.buildLastScannedSection = function (section) {
+    var self = this;
+    var uid = self.activeTag;
 
-    this.logger.info(
-        'NFC Music: executing tag ' + JSON.stringify(tag)
-    );
-
-    // -----------------------------------------------------
-    // VALIDATIE: tag moet acties bevatten
-    // -----------------------------------------------------
-    if (!tag || !tag.actions || tag.actions.length === 0) {
-        this.logger.error('Tag heeft geen actions');
+    if (!uid) {
+        section.content.push({
+            id: 'last_scanned_info',
+            element: 'text',
+            label: 'Status',
+            value: 'Nog geen tag gescand sinds de laatste herstart.'
+        });
         return;
     }
 
-    // -----------------------------------------------------
-    // ACTIE SELECTIE (nu: alleen eerste actie)
-    // TODO: later uitbreiden naar multi-action flow
-    // -----------------------------------------------------
-    const action = tag.actions[0];
+    var existing = self.tags[uid];
 
-    // -----------------------------------------------------
-    // DISPATCHER: route action naar juiste handler
-    // -----------------------------------------------------
-    switch (action.action) {
+    section.content.push({
+        id: 'last_scanned_uid',
+        element: 'text',
+        label: 'UID',
+        value: uid
+    });
 
-        case 'play':
-            return this.playLocal(action);
+    section.content.push({
+        id: 'last_scanned_name',
+        element: 'text',
+        label: 'Naam',
+        value: existing ? existing.name : 'Nog niet geregistreerd (nieuwe tag)'
+    });
 
-        case 'playSpotify':
-            return this.playSpotify(action);
+    section.content.push({
+        id: 'edit_last_scanned_button',
+        element: 'button',
+        label: 'Bewerk deze tag',
+        onClick: {
+            type: 'controller',
+            endpoint: 'system_hardware/nfc_music',
+            method: 'editLastScanned'
+        }
+    });
+};
+
+
+// -----------------------------------------------------------
+// Sectie 2: bestaande tag kiezen
+// -----------------------------------------------------------
+NfcMusic.prototype.buildPickExistingSection = function (section) {
+    var self = this;
+
+    var entries = Object.keys(self.tags).map(function (uid) {
+        return { uid: uid, name: self.tags[uid].name || uid };
+    });
+
+    if (entries.length === 0) {
+        section.content.push({
+            id: 'no_existing_tags',
+            element: 'text',
+            label: 'Info',
+            value: 'Er zijn nog geen tags geregistreerd.'
+        });
+        return;
+    }
+
+    entries.sort(function (a, b) {
+        return a.name.localeCompare(b.name);
+    });
+
+    var options = entries.map(function (e) {
+        return { value: e.uid, label: e.name + ' (' + e.uid + ')' };
+    });
+
+    var defaultOption = self.activeEditTag
+        ? options.find(function (o) { return o.value === self.activeEditTag; })
+        : null;
+
+    section.content.push({
+        id: 'existingTagUid',
+        element: 'select',
+        label: 'Tag',
+        value: defaultOption || options[0],
+        options: options
+    });
+};
+
+
+// -----------------------------------------------------------
+// Sectie 3: tag bewerken
+// -----------------------------------------------------------
+NfcMusic.prototype.buildEditTagSection = function (section) {
+    var self = this;
+    var uid = self.activeEditTag;
+
+    if (!uid) {
+        section.content.push({
+            id: 'edit_tag_info',
+            element: 'text',
+            label: 'Info',
+            value: 'Kies eerst een tag hierboven (laatst gescand, of uit de lijst) om te bewerken.'
+        });
+        return;
+    }
+
+    var tag = self.tags[uid] || { name: uid, actions: [] };
+    var firstAction = tag.actions && tag.actions[0] ? tag.actions[0] : null;
+    var actionKey = self.combinedActionTypeKey(firstAction);
+    var actionData = (firstAction && firstAction.data) ? firstAction.data : {};
+
+    var actionTypeOptions = [
+        { value: 'local_track', label: 'Lokaal: los nummer' },
+        { value: 'local_album', label: 'Lokaal: album' },
+        { value: 'local_playlist', label: 'Lokaal: playlist' },
+        { value: 'spotify_album', label: 'Spotify: album' },
+        { value: 'spotify_playlist', label: 'Spotify: playlist' }
+    ];
+
+    section.content.push({
+        id: 'edit_tag_uid',
+        element: 'text',
+        label: 'UID',
+        value: uid
+    });
+
+    section.content.push({
+        id: 'name',
+        element: 'input',
+        type: 'text',
+        label: 'Naam',
+        value: tag.name || uid
+    });
+
+    section.content.push({
+        id: 'actionType',
+        element: 'select',
+        label: 'Actietype',
+        value: actionTypeOptions.find(function (o) { return o.value === actionKey; }) || actionTypeOptions[1],
+        options: actionTypeOptions
+    });
+
+    // --- Lokaal: los nummer ---
+    section.content.push({
+        id: 'track_uri',
+        element: 'input',
+        type: 'text',
+        label: 'Track URI',
+        doc: 'Volledig pad zoals Volumio het kent, bijv. music-library/NAS/.../nummer.flac',
+        value: actionData.uri || '',
+        visibleIf: { field: 'actionType', value: 'local_track' }
+    });
+    section.content.push({
+        id: 'track_titel',
+        element: 'input',
+        type: 'text',
+        label: 'Titel',
+        value: actionData.title || '',
+        visibleIf: { field: 'actionType', value: 'local_track' }
+    });
+    section.content.push({
+        id: 'track_artist',
+        element: 'input',
+        type: 'text',
+        label: 'Artiest (optioneel)',
+        value: actionData.artist || '',
+        visibleIf: { field: 'actionType', value: 'local_track' }
+    });
+    section.content.push({
+        id: 'track_album',
+        element: 'input',
+        type: 'text',
+        label: 'Album (optioneel)',
+        value: actionData.album || '',
+        visibleIf: { field: 'actionType', value: 'local_track' }
+    });
+
+    // --- Lokaal: album ---
+    section.content.push({
+        id: 'album_artist',
+        element: 'input',
+        type: 'text',
+        label: 'Artiest',
+        value: actionKey === 'local_album' ? (actionData.artist || '') : '',
+        visibleIf: { field: 'actionType', value: 'local_album' }
+    });
+    section.content.push({
+        id: 'album_naam',
+        element: 'input',
+        type: 'text',
+        label: 'Albumnaam',
+        value: actionKey === 'local_album' ? (actionData.album || '') : '',
+        visibleIf: { field: 'actionType', value: 'local_album' }
+    });
+
+    // --- Lokaal: playlist ---
+    section.content.push({
+        id: 'playlist_naam',
+        element: 'input',
+        type: 'text',
+        label: 'Playlistnaam',
+        value: actionKey === 'local_playlist' ? (actionData.name || '') : '',
+        visibleIf: { field: 'actionType', value: 'local_playlist' }
+    });
+
+    // --- Spotify: album ---
+    section.content.push({
+        id: 'spotify_album_uri',
+        element: 'input',
+        type: 'text',
+        label: 'Spotify album URI',
+        doc: 'bijv. spotify:album:xxxxxxxx',
+        value: actionKey === 'spotify_album' ? (actionData.uri || '') : '',
+        visibleIf: { field: 'actionType', value: 'spotify_album' }
+    });
+
+    // --- Spotify: playlist ---
+    section.content.push({
+        id: 'spotify_playlist_uri',
+        element: 'input',
+        type: 'text',
+        label: 'Spotify playlist URI',
+        doc: 'bijv. spotify:playlist:xxxxxxxx',
+        value: actionKey === 'spotify_playlist' ? (actionData.uri || '') : '',
+        visibleIf: { field: 'actionType', value: 'spotify_playlist' }
+    });
+
+    section.content.push({
+        id: 'delete_tag_button',
+        element: 'button',
+        label: 'Verwijder deze tag',
+        onClick: {
+            type: 'controller',
+            endpoint: 'system_hardware/nfc_music',
+            method: 'deleteCurrentTag'
+        }
+    });
+};
+
+
+// ===========================================================
+// ACTIES VANUIT DE UI
+// ===========================================================
+
+NfcMusic.prototype.editLastScanned = function () {
+    var self = this;
+
+    if (!self.activeTag) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Nog geen tag gescand');
+        return libQ.resolve({});
+    }
+
+    self.activeEditTag = self.activeTag;
+    return self.refreshUI();
+};
+
+NfcMusic.prototype.selectTagToEdit = function (data) {
+    var self = this;
+
+    var uid = (data.existingTagUid && data.existingTagUid.value)
+        ? data.existingTagUid.value
+        : data.existingTagUid;
+
+    if (!uid) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen tag geselecteerd');
+        return libQ.resolve({});
+    }
+
+    self.activeEditTag = uid;
+    return self.refreshUI();
+};
+
+NfcMusic.prototype.saveTag = async function (data) {
+    var self = this;
+    var uid = self.activeEditTag;
+
+    if (!uid) {
+        self.logger.error('saveTag: geen activeEditTag gezet');
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Er is geen tag geselecteerd om op te slaan');
+        return {};
+    }
+
+    if (self.uiBusy) {
+        self.logger.warn('saveTag blocked (UI busy)');
+        return {};
+    }
+    self.uiBusy = true;
+
+    try {
+        var actionType = (data.actionType && data.actionType.value) ? data.actionType.value : data.actionType;
+        var action = self.buildActionFromForm(actionType, data);
+
+        if (!action) {
+            self.commandRouter.pushToastMessage('error', 'NFC Music', 'Onbekend actietype: ' + actionType);
+            return {};
+        }
+
+        self.tags[uid] = {
+            name: (data.name || uid).trim(),
+            actions: [action]
+        };
+
+        self.saveTags();
+
+        self.commandRouter.pushToastMessage('success', 'NFC Music', 'Tag ' + uid + ' opgeslagen');
+
+        await self.refreshUI();
+
+    } catch (err) {
+        self.logger.error('saveTag error: ' + err);
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Opslaan mislukt: ' + err.message);
+    } finally {
+        self.uiBusy = false;
+    }
+
+    return {};
+};
+
+NfcMusic.prototype.deleteCurrentTag = async function () {
+    var self = this;
+    var uid = self.activeEditTag;
+
+    if (!uid) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen tag geselecteerd om te verwijderen');
+        return {};
+    }
+
+    delete self.tags[uid];
+    self.saveTags();
+    self.activeEditTag = null;
+
+    self.commandRouter.pushToastMessage('success', 'NFC Music', 'Tag ' + uid + ' verwijderd');
+
+    await self.refreshUI();
+    return {};
+};
+
+
+// ===========================================================
+// HELPERS
+// ===========================================================
+
+/*
+ * Zet een (source, type) combinatie om naar de dropdown-waarde,
+ * bijv. { type: 'album', source: 'spotify' } -> 'spotify_album'
+ */
+NfcMusic.prototype.combinedActionTypeKey = function (action) {
+    if (!action) {
+        return 'local_album';
+    }
+    var source = action.source || 'local';
+    var type = action.type || 'album';
+    return source + '_' + type;
+};
+
+/*
+ * Bouwt het actions[0]-object precies zoals tag-handler.js het verwacht,
+ * op basis van de dropdown-waarde en de bijbehorende formuliervelden.
+ */
+NfcMusic.prototype.buildActionFromForm = function (actionType, data) {
+    switch (actionType) {
+
+        case 'local_track':
+            return {
+                action: 'play',
+                type: 'track',
+                source: 'local',
+                data: {
+                    uri: (data.track_uri || '').trim(),
+                    title: (data.track_titel || '').trim(),
+                    artist: (data.track_artist || '').trim(),
+                    album: (data.track_album || '').trim()
+                }
+            };
+
+        case 'local_album':
+            return {
+                action: 'play',
+                type: 'album',
+                source: 'local',
+                data: {
+                    artist: (data.album_artist || '').trim(),
+                    album: (data.album_naam || '').trim()
+                }
+            };
+
+        case 'local_playlist':
+            return {
+                action: 'play',
+                type: 'playlist',
+                source: 'local',
+                data: {
+                    name: (data.playlist_naam || '').trim()
+                }
+            };
+
+        case 'spotify_album':
+            return {
+                action: 'play',
+                type: 'album',
+                source: 'spotify',
+                data: {
+                    uri: (data.spotify_album_uri || '').trim()
+                }
+            };
+
+        case 'spotify_playlist':
+            return {
+                action: 'play',
+                type: 'playlist',
+                source: 'spotify',
+                data: {
+                    uri: (data.spotify_playlist_uri || '').trim()
+                }
+            };
 
         default:
-            this.logger.error(
-                'Unknown action: ' + action.action
-            );
+            return null;
     }
 };
-
-
-// =========================================================
-// PLAYBACK HANDLER: LOCAL (MPD / Volumio library)
-// =========================================================
-
-/*
- * playLocal()
- * ---------------------------------------------------------
- * Handelt lokale playback acties af:
- * - album
- * - playlist
- */
-NfcMusic.prototype.playLocal = function (action) {
-
-    const data = action.data || {};
-
-    this.logger.info(
-        'NFC Music: Playing local -> ' + JSON.stringify(data)
-    );
-
-    // -----------------------------------------------------
-    // PLAYLIST HANDLING
-    // -----------------------------------------------------
-    if (action.type === 'playlist') {
-
-        return this.commandRouter.volumioReplaceandPlayItems({
-            service: 'mpd',
-            type: 'playlist',
-            name: data.name
-        });
-    }
-
-    // -----------------------------------------------------
-    // ALBUM HANDLING
-    // -----------------------------------------------------
-    if (action.type === 'album') {
-
-        return this.commandRouter.volumioReplaceandPlayItems({
-            service: 'mpd',
-            type: 'album',
-            artist: data.artist,
-            album: data.album
-        });
-    }
-
-    this.logger.warn(
-        'playLocal: onbekend type ' + action.type
-    );
-};
-
-
-// =========================================================
-// PLAYBACK HANDLER: SPOTIFY
-// =========================================================
-
-/*
- * playSpotify()
- * ---------------------------------------------------------
- * Stuurt Spotify URI naar Volumio Spotify plugin
- */
-NfcMusic.prototype.playSpotify = function (action) {
-
-    this.logger.info(
-        'NFC Music: Spotify play -> ' + action.uri
-    );
-
-    return this.commandRouter.executeOnPlugin(
-        'music_service',
-        'spotify',
-        'playUri',
-        action.uri
-    );
-};
-
 
 // =========================================================
 // UI ACTION HANDLERS (called from frontend buttons)
@@ -590,199 +769,11 @@ NfcMusic.prototype.playSpotify = function (action) {
 /*
  * getConfigurationFiles()
  * ---------------------------------------------------------
- * Definieert welke config files Volumio moet laden
+ * Definieert welke config files Volumio moet laden.
+ * Altijd laten staan. Verplichte lifecycle hook. 
  */
 NfcMusic.prototype.getConfigurationFiles = function () {
     return ['config.json'];
-};
-
-/*
- * openTagEditor()
- * ---------------------------------------------------------
- * Opent de tag editor voor een specifieke NFC tag
- */
-NfcMusic.prototype.openTagEditor = function (data) {
-
-    const uid = data?.uid;
-
-    this.logger.info(`NFC Music: openTagEditor -> ${uid}`);
-
-    this.activeEditTag = uid;
-
-    return this.refreshUI();
-};
-
-/*
- * saveTag()
- * ---------------------------------------------------------
- * Slaat de gewijzigde taggegevens op vanuit UI editor
- */
-NfcMusic.prototype.saveTag = async function (data) {
-
-    const uid = this.activeEditTag;
-
-    // =====================================================
-    // DEBUG LOGGING
-    // =====================================================
-
-    this.logger.info(`saveTag: ${uid}`);
-    this.logger.info(`saveTag data: ${JSON.stringify(data)}`);
-    
-    // Extra, duidelijker dan boven: log type en inhoud apart
-    this.logger.info('saveTag RAW data type: ' + typeof data);
-    this.logger.info('saveTag RAW data: ' + data);
-
-    try {
-        this.logger.info('saveTag JSON: ' + JSON.stringify(data, null, 2));
-    } catch (e) {
-        this.logger.warn('saveTag JSON stringify failed');
-    }
-
-    // Keys loggen
-    if (data && typeof data === 'object') {
-        this.logger.info('saveTag keys: ' + Object.keys(data).join(', '));
-    }
-
-    // Full argument
-    this.logger.info('FULL ARGUMENTS: ' + JSON.stringify(arguments));
-
-    // =====================================================
-    // 1. UI LOCK (voorkomt dubbele saves / race conditions)
-    // =====================================================
-
-    if (this.uiBusy) {
-        this.logger.warn('saveTag blocked (UI busy)');
-        return;
-    }
-
-    this.uiBusy = true;
-
-    try {
-
-        // =================================================
-        // 2. VALIDATIE: UID aanwezig
-        // =================================================
-
-        if (!uid) {
-            throw new Error('saveTag: geen activeEditTag');
-        }
-
-        // =================================================
-        // 3. VALIDATIE: data aanwezig
-        // =================================================
-
-        if (!data) {
-            throw new Error('saveTag: geen data ontvangen');
-        }
-
-        // =================================================
-        // 3.1 Volumio FIX: data kan string zijn
-        // =================================================
-
-        if (typeof data === 'string') {
-            if (data === 'data') {
-                this.logger.error('saveTag: UI stuurde placeholder string i.p.v. form data');
-                this.uiBusy = false;
-                return;
-            }
-
-            try {
-                data = JSON.parse(data);
-            } catch (e) {
-                this.logger.warn('saveTag: invalid JSON payload');
-                data = {};
-            }
-        }
-
-        // =================================================
-        // 4. Zorg dat tag bestaat
-        // =================================================
-
-        if (!this.tags[uid]) {
-            this.logger.info(`saveTag: nieuwe tag aangemaakt (${uid})`);
-
-            this.tags[uid] = {
-                name: uid,
-                actions: []
-            };
-        }
-
-        // =================================================
-        // 5. UPDATE MODEL (TAG DATA STRUCTURE)
-        // =================================================
-
-        this.tags[uid].name = data.name || uid;
-
-        this.tags[uid].actions = [{
-            action: data.type === "spotify" ? "playSpotify" : "play",
-            type: data.type || "album",
-            data: {
-                artist: data.artist || "",
-                album: data.album || ""
-            }
-        }];
-
-        // =================================================
-        // 6. PERSIST TO DISK
-        // =================================================
-
-        this.saveTags();
-
-        // =================================================
-        // 7. EXIT EDIT MODE
-        // =================================================
-
-        this.activeEditTag = null;
-
-        // =================================================
-        // 8. REFRESH UI (CENTRALE WRAPPER)
-        // =================================================
-
-        await this.refreshUI();
-
-    } catch (err) {
-
-        this.logger.error('saveTag error: ' + err);
-
-    } finally {
-
-        // =================================================
-        // 9. ALWAYS UNLOCK UI
-        // =================================================
-
-        this.uiBusy = false;
-    }
-};
-
-/*
- * closeTagEditor()
- * ---------------------------------------------------------
- * Sluit de tag editor
- */
-NfcMusic.prototype.closeTagEditor = function () {
-
-    this.logger.info('NFC Music: closeTagEditor');
-
-    // reset edit state
-    this.activeEditTag = null;
-
-    // UI opnieuw laden
-    return this.refreshUI();
-};
-
-
-// =========================================================
-// UI CONFIG HANDLING (future use)
-// =========================================================
-
-/*
- * setUIConfig()
- * ---------------------------------------------------------
- * Wordt aangeroepen bij UI save actions
- * (nu nog niet geïmplementeerd)
- */
-NfcMusic.prototype.setUIConfig = function (data) {
-    // TODO: UI save / tag editing logic
 };
 
 
