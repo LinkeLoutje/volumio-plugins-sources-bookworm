@@ -1,5 +1,5 @@
 {
-  "53D9DE43140001": {
+  "53D9DE43140002": {
     "name": "Good Feeling",
     "actions": [
       {
@@ -26,13 +26,43 @@
         "source": "local",
         "data": {
           "artist": "Fink",
-          "album": "Beauty In Your Wake"
+          "album": "Beauty In Your Wake (Acoustic)"
         }
       }
     ]
   },
 
-  "04A1B2C3D3": {
+  "53D4DE43140001": { 
+    "name": "Sesamstraat - De leukste kinderliedjes",
+    "actions": [
+      {
+        "action": "play",
+        "type": "album",
+        "source": "local",
+        "data": {
+          "artist": "Sesamstraat",
+          "album": "De leukste Nederlandse kinderliedjes uit Sesamstraat (Deel II)"
+        }
+      }
+    ]
+  },
+
+  "5328F243140001": { 
+    "name": "De Leeuwenkoning",
+    "actions": [
+      {
+        "action": "play",
+        "type": "album",
+        "source": "local",
+        "data": {
+          "artist": "Various Artists",
+          "album": "De Leeuwenkoning"
+        }
+      }
+    ]
+  },
+
+  "53D9DE43140001": {
     "name": "Test playlist",
     "actions": [
       {
@@ -40,7 +70,7 @@
         "type": "playlist",
         "source": "local",
         "data": {
-          "name": "Chill"
+          "name": "Test123"
         }
       }
     ]

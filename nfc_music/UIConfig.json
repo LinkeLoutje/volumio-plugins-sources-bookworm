@@ -1,7 +1,20 @@
 {
   "page": {
-    "label": "TRANSLATE.PLUGIN_CONFIGURATION"
+    "label": "TEST NFC"
   },
   "sections": [
+    {
+      "id": "tags",
+      "element": "section",
+      "label": "Tags",
+      "content": [
+        {
+          "id": "test_1",
+          "element": "button",
+          "label": "UI WERKT v2",
+          "value": "test"
+        }
+      ]
+    }
   ]
 }

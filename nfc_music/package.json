@@ -8,7 +8,7 @@
 	},
 	"author": "LinkeLoutje",
 	"license": "ISC",
-	"repository": "https://github.com/yourname/yourrepo",
+	"repository": "https://github.com/LinkeLoutje/volumio-plugins-sources-bookworm",
 	"volumio_info": {
 		"prettyName": "NFC Music",
 		"icon": "fa-lightbulb-o",

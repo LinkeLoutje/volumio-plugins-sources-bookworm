@@ -1,12 +1,13 @@
 'use strict';
 
 const axios = require('axios');
-const SpotifyPlayer = require('./spotify-player');
+// const SpotifyPlayer = require('./spotify-player');
 
 class Player {
 
     constructor(options = {}) {
         this.logger = options.logger || console;
+        this.commandRouter = options.commandRouter;
     }
 
     // -----------------------------
@@ -74,8 +75,7 @@ class Player {
 
             albumItem = items.find(item =>
                 item.type === 'folder' &&
-                item.artist === data.artist &&
-                item.title === data.album
+                item.title?.toLowerCase().includes(data.album.toLowerCase())
             );
 
             if (albumItem) break;
@@ -111,20 +111,20 @@ class Player {
     }
 
     // -----------------------------
-    // PLAYLIST
+    // PLAYLIST (werkt niet!!!!!)
     // -----------------------------
     async playPlaylist(data) {
 
         this.logger.info(
-            `NFC Music: playlist starten: ${data.name}`
+            `Playlist starten via Volumio API: ${data.name}`
         );
 
         const response = await axios.post(
             'http://127.0.0.1:3000/api/v1/replaceAndPlay',
             {
-                service: 'mpd',
+                service: 'playlists',
                 type: 'playlist',
-                name: data.name
+                uri: `playlists/${data.name}`
             },
             {
                 headers: { 'Content-Type': 'application/json' }
@@ -132,7 +132,7 @@ class Player {
         );
 
         this.logger.info(
-            `NFC Music: playlist gestart: HTTP ${response.status}`
+            `Playlist gestart: HTTP ${response.status}`
         );
 
         return response.status === 200;
