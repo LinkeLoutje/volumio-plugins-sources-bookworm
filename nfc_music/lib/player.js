@@ -19,12 +19,46 @@ class Player {
             `NFC Music: track starten: ${track.title}`
         );
 
+        const searchResponse = await axios.get(
+            'http://127.0.0.1:3000/api/v1/search',
+            {
+                params: {
+                    query: track.title
+                }
+            }
+        );
+
+        const lists = searchResponse.data?.navigation?.lists || [];
+
+        let trackItem = null;
+
+        for (const list of lists) {
+
+            const items = list.items || [];
+
+            trackItem = items.find(item =>
+                item.type === 'song' &&
+                item.artist?.toLowerCase() === track.artist.toLowerCase() &&
+                item.title?.toLowerCase() === track.title.toLowerCase()
+            );
+
+            if (trackItem) break;
+        }
+
+        if (!trackItem) {
+            throw new Error(`Track niet gevonden: ${track.title}`);
+        }
+
+        this.logger.info(
+            `NFC Music: track gevonden: ${trackItem.uri}`
+        );
+
         const response = await axios.post(
             'http://127.0.0.1:3000/api/v1/replaceAndPlay',
             {
                 service: track.service || 'mpd',
                 type: 'track',
-                uri: track.uri,
+                uri: trackItem.uri,
                 title: track.title,
                 artist: track.artist,
                 album: track.album,
@@ -110,7 +144,7 @@ class Player {
         return response.status === 200;
     }
 
-// -----------------------------
+    // -----------------------------
     // PLAYLIST (fix v3: browse + replaceAndPlay, i.p.v. het kapotte
     // interne playlistManager-mechanisme achter cmd=playplaylist)
     // -----------------------------
