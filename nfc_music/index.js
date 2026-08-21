@@ -349,10 +349,12 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
     var self = this;
     var uid = self.activeTag;
 
+    self.logger.info('NFC Music DEBUG: buildLastScannedSection uid=[' + uid + '] type=' + typeof uid); //tmp logging
+
     if (!uid) {
         section.content.push({
             id: 'last_scanned_info',
-            element: 'text',
+            element: 'input', type: 'text',
             label: 'Status',
             value: 'Nog geen tag gescand sinds de laatste herstart.'
         });
@@ -363,14 +365,14 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
 
     section.content.push({
         id: 'last_scanned_uid',
-        element: 'text',
+        element: 'input', type: 'text',
         label: 'UID',
         value: uid
     });
 
     section.content.push({
         id: 'last_scanned_name',
-        element: 'text',
+        element: 'input', type: 'text',
         label: 'Naam',
         value: existing ? existing.name : 'Nog niet geregistreerd (nieuwe tag)'
     });
@@ -401,7 +403,7 @@ NfcMusic.prototype.buildPickExistingSection = function (section) {
     if (entries.length === 0) {
         section.content.push({
             id: 'no_existing_tags',
-            element: 'text',
+            element: 'input', type: 'text',
             label: 'Info',
             value: 'Er zijn nog geen tags geregistreerd.'
         });
@@ -440,7 +442,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     if (!uid) {
         section.content.push({
             id: 'edit_tag_info',
-            element: 'text',
+            element: 'input', type: 'text',
             label: 'Info',
             value: 'Kies eerst een tag hierboven (laatst gescand, of uit de lijst) om te bewerken.'
         });
@@ -462,7 +464,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
 
     section.content.push({
         id: 'edit_tag_uid',
-        element: 'text',
+        element: 'input', type: 'text',
         label: 'UID',
         value: uid
     });

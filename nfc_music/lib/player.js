@@ -111,30 +111,35 @@ class Player {
     }
 
     // -----------------------------
-    // PLAYLIST (werkt niet!!!!!)
+    // PLAYLIST (fix v2: via het cmd=playplaylist REST-commando,
+    // dat een ander/werkend codepad gebruikt dan replaceAndPlay
+    // met een 'playlists/<naam>'-uri, wat op een bekende Volumio-bug
+    // stuit: /mnt/playlists/... i.p.v. het juiste /data/playlists/...)
     // -----------------------------
     async playPlaylist(data) {
-
+ 
         this.logger.info(
-            `Playlist starten via Volumio API: ${data.name}`
+            `NFC Music: playlist afspelen via cmd=playplaylist: ${data.name}`
         );
-
-        const response = await axios.post(
-            'http://127.0.0.1:3000/api/v1/replaceAndPlay',
+ 
+        const response = await axios.get(
+            'http://127.0.0.1:3000/api/v1/commands/',
             {
-                service: 'playlists',
-                type: 'playlist',
-                uri: `playlists/${data.name}`
-            },
-            {
-                headers: { 'Content-Type': 'application/json' }
+                params: {
+                    cmd: 'playplaylist',
+                    name: data.name
+                }
             }
         );
-
+ 
         this.logger.info(
-            `Playlist gestart: HTTP ${response.status}`
+            `NFC Music: playplaylist response: ${JSON.stringify(response.data)}`
         );
-
+ 
+        // Let op: deze REST-call meldt altijd "Success", zelfs als de
+        // playlistnaam niet bestaat - een HTTP 200 is dus geen garantie
+        // dat er ook echt iets gaat spelen. Controleer bij twijfel of
+        // de queue daadwerkelijk gevuld is.
         return response.status === 200;
     }
 
@@ -144,66 +149,29 @@ class Player {
     async playSpotify(data) {
 
         this.logger.info(
-            `NFC Music: Spotify starten type=${data.type} uri=${data.uri}`
+            `NFC Music: Spotify starten -> type=${data.type} uri=${data.uri}`
         );
 
-        switch (data.type) {
-
-            case 'track':
-                return await this.spotifyPlayTrack(data.uri);
-
-            case 'album':
-            case 'playlist':
-                return await this.spotifyPlayContext(data.uri);
-
-            default:
-                throw new Error(`Unknown Spotify type: ${data.type}`);
+        if (!data.uri) {
+            throw new Error('playSpotify: geen uri opgegeven');
         }
-    }
 
-    // -----------------------------
-    // SPOTIFY Helpers
-    // -----------------------------
-    async spotifyPlayTrack(uri) {
-        return this.spotifyCall({
-            uris: [uri]
-        });
-    }
-
-    async spotifyPlayContext(uri) {
-        return this.spotifyCall({
-            context_uri: uri
-        });
-    }
-    // Spotify core call
-    async spotifyCall(body) {
-
-        this.logger.info(
-            `Spotify API call: ${JSON.stringify(body)}`
-        );
-
-        const token = await this.getSpotifyToken();
-
-        const response = await axios.put(
-            'https://api.spotify.com/v1/me/player/play',
-            body,
+        const response = await axios.post(
+            'http://127.0.0.1:3000/api/v1/replaceAndPlay',
             {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                service: 'spop',
+                uri: data.uri
+            },
+            {
+                headers: { 'Content-Type': 'application/json' }
             }
         );
 
         this.logger.info(
-            `Spotify response: ${response.status}`
+            `NFC Music: Spotify gestart: HTTP ${response.status}`
         );
 
-        return response.status === 204;
-    }
-    // Token hook (tijdelijke stub)
-    async getSpotifyToken() {
-        throw new Error('Wire spotify-auth/token-store here');
+        return response.status === 200;
     }
 
 }
