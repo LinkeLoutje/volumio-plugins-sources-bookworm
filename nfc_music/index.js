@@ -308,7 +308,7 @@ NfcMusic.prototype.onRestart = function () {
 };
 
 // ===========================================================
-// UI CONFIGURATIE (dynamisch opgebouwd)
+// UI CONFIGURATIE (dynamisch opgebouwd) - VERVANGT bestaande getUIConfig
 // ===========================================================
 
 NfcMusic.prototype.getUIConfig = function () {
@@ -325,10 +325,14 @@ NfcMusic.prototype.getUIConfig = function () {
 
         var sectionLastScanned = uiconf.sections[0];
         var sectionPickExisting = uiconf.sections[1];
-        var sectionEditTag = uiconf.sections[2];
+        var sectionTrackSearch = uiconf.sections[2];
+        var sectionTrackSearchResults = uiconf.sections[3];
+        var sectionEditTag = uiconf.sections[4];
 
         self.buildLastScannedSection(sectionLastScanned);
         self.buildPickExistingSection(sectionPickExisting);
+        self.buildTrackSearchSection(sectionTrackSearch);
+        self.buildTrackSearchResultsSection(sectionTrackSearchResults);
         self.buildEditTagSection(sectionEditTag);
 
         defer.resolve(uiconf);
@@ -340,6 +344,7 @@ NfcMusic.prototype.getUIConfig = function () {
 
     return defer.promise;
 };
+;
 
 
 // -----------------------------------------------------------
@@ -435,6 +440,53 @@ NfcMusic.prototype.buildPickExistingSection = function (section) {
 // -----------------------------------------------------------
 // Sectie 3: tag bewerken
 // -----------------------------------------------------------
+// -----------------------------------------------------------
+// Sectie: nummer zoeken (input-veld, geen dynamische content nodig)
+// -----------------------------------------------------------
+NfcMusic.prototype.buildTrackSearchSection = function (section) {
+    // Statisch veld, niets dynamisch te doen - UIConfig.json bevat
+    // het al. Functie bestaat puur voor consistentie/toekomstig gebruik.
+};
+
+
+// -----------------------------------------------------------
+// Sectie: zoekresultaten
+// -----------------------------------------------------------
+NfcMusic.prototype.buildTrackSearchResultsSection = function (section) {
+    var self = this;
+    var results = self.trackSearchResults || [];
+
+    if (results.length === 0) {
+        section.content.push({
+            id: 'no_search_results',
+            element: 'input',
+            type: 'text',
+            label: 'Info',
+            value: 'Nog geen zoekresultaten. Gebruik de sectie hierboven om te zoeken.'
+        });
+        return;
+    }
+
+    var options = results.map(function (track) {
+        var label = (track.artist ? track.artist + ' - ' : '') + (track.title || track.uri);
+        return { value: track.uri, label: label };
+    });
+
+    section.content.push({
+        id: 'track_search_result',
+        element: 'select',
+        label: 'Gevonden nummers',
+        value: options[0],
+        options: options
+    });
+};
+
+
+// -----------------------------------------------------------
+// Sectie: tag bewerken - VERVANGT bestaande buildEditTagSection
+// (enige wijziging t.o.v. vorige versie: self.pendingTrack krijgt
+// voorrang boven de opgeslagen actionData van de tag)
+// -----------------------------------------------------------
 NfcMusic.prototype.buildEditTagSection = function (section) {
     var self = this;
     var uid = self.activeEditTag;
@@ -442,7 +494,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     if (!uid) {
         section.content.push({
             id: 'edit_tag_info',
-            element: 'input', type: 'text',
+            element: 'input',
+            type: 'text',
             label: 'Info',
             value: 'Kies eerst een tag hierboven (laatst gescand, of uit de lijst) om te bewerken.'
         });
@@ -451,8 +504,15 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
 
     var tag = self.tags[uid] || { name: uid, actions: [] };
     var firstAction = tag.actions && tag.actions[0] ? tag.actions[0] : null;
-    var actionKey = self.combinedActionTypeKey(firstAction);
     var actionData = (firstAction && firstAction.data) ? firstAction.data : {};
+
+    var pendingTrack = self.pendingTrack || null;
+
+    // Als er net een track via zoeken is gekozen, heeft die voorrang
+    // en forceren we het actietype naar 'local_track'.
+    var actionKey = pendingTrack
+        ? 'local_track'
+        : self.combinedActionTypeKey(firstAction);
 
     var actionTypeOptions = [
         { value: 'local_track', label: 'Lokaal: los nummer' },
@@ -464,7 +524,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
 
     section.content.push({
         id: 'edit_tag_uid',
-        element: 'input', type: 'text',
+        element: 'input',
+        type: 'text',
         label: 'UID',
         value: uid
     });
@@ -474,7 +535,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Naam',
-        value: tag.name || uid
+        value: pendingTrack ? (pendingTrack.title || tag.name || uid) : (tag.name || uid)
     });
 
     section.content.push({
@@ -491,8 +552,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Track URI',
-        doc: 'Volledig pad zoals Volumio het kent, bijv. music-library/NAS/.../nummer.flac',
-        value: actionData.uri || '',
+        doc: 'Volledig pad zoals Volumio het kent. Wordt automatisch ingevuld na "Gebruik dit nummer" hierboven.',
+        value: pendingTrack ? (pendingTrack.uri || '') : (actionData.uri || ''),
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
     section.content.push({
@@ -500,7 +561,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Titel',
-        value: actionData.title || '',
+        value: pendingTrack ? (pendingTrack.title || '') : (actionData.title || ''),
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
     section.content.push({
@@ -508,7 +569,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Artiest (optioneel)',
-        value: actionData.artist || '',
+        value: pendingTrack ? (pendingTrack.artist || '') : (actionData.artist || ''),
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
     section.content.push({
@@ -516,7 +577,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Album (optioneel)',
-        value: actionData.album || '',
+        value: pendingTrack ? (pendingTrack.album || '') : (actionData.album || ''),
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
 
@@ -584,6 +645,93 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
 
 
 // ===========================================================
+// NIEUWE ACTIES: track zoeken
+// ===========================================================
+
+NfcMusic.prototype.searchTracks = async function (data) {
+    var self = this;
+    var query = (data.track_search_query || '').trim();
+
+    if (!query) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Vul een zoekterm in');
+        return {};
+    }
+
+    try {
+        const axios = require('axios');
+
+        const response = await axios.get(
+            'http://127.0.0.1:3000/api/v1/search',
+            { params: { query: query } }
+        );
+
+        const lists = (response.data && response.data.navigation)
+            ? response.data.navigation.lists
+            : [];
+
+        var songs = [];
+        (lists || []).forEach(function (list) {
+            (list.items || []).forEach(function (item) {
+                if (item.type === 'song') {
+                    songs.push(item);
+                }
+            });
+        });
+
+        self.trackSearchResults = songs;
+
+        self.logger.info(
+            'NFC Music: ' + songs.length + ' nummer(s) gevonden voor "' + query + '"'
+        );
+
+        if (songs.length === 0) {
+            self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen nummers gevonden voor "' + query + '"');
+        }
+
+    } catch (err) {
+        self.logger.error('NFC Music: zoeken mislukt: ' + err.message);
+        self.trackSearchResults = [];
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Zoeken mislukt: ' + err.message);
+    }
+
+    await self.refreshUI();
+    return {};
+};
+
+NfcMusic.prototype.useSearchResult = async function (data) {
+    var self = this;
+
+    var uri = (data.track_search_result && data.track_search_result.value)
+        ? data.track_search_result.value
+        : data.track_search_result;
+
+    if (!uri) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen nummer geselecteerd');
+        return {};
+    }
+
+    var track = (self.trackSearchResults || []).find(function (t) { return t.uri === uri; });
+
+    if (!track) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Nummer niet meer gevonden in zoekresultaten, zoek opnieuw');
+        return {};
+    }
+
+    if (!self.activeEditTag) {
+        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Kies eerst een tag om te bewerken (boven aan de pagina)');
+        return {};
+    }
+
+    self.pendingTrack = track;
+
+    self.commandRouter.pushToastMessage('success', 'NFC Music', 'Nummer geselecteerd: ' + (track.title || track.uri));
+
+    await self.refreshUI();
+    return {};
+};
+
+
+// ===========================================================
 // ACTIES VANUIT DE UI
 // ===========================================================
 
@@ -596,6 +744,8 @@ NfcMusic.prototype.editLastScanned = function () {
     }
 
     self.activeEditTag = self.activeTag;
+    self.pendingTrack = null;
+    self.trackSearchResults = [];
     return self.refreshUI();
 };
 
@@ -612,6 +762,9 @@ NfcMusic.prototype.selectTagToEdit = function (data) {
     }
 
     self.activeEditTag = uid;
+    self.pendingTrack = null;
+    self.trackSearchResults = [];
+ 
     return self.refreshUI();
 };
 
@@ -646,6 +799,7 @@ NfcMusic.prototype.saveTag = async function (data) {
         };
 
         self.saveTags();
+        self.pendingTrack = null;
 
         self.commandRouter.pushToastMessage('success', 'NFC Music', 'Tag ' + uid + ' opgeslagen');
 

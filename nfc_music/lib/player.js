@@ -110,36 +110,53 @@ class Player {
         return response.status === 200;
     }
 
-    // -----------------------------
-    // PLAYLIST (fix v2: via het cmd=playplaylist REST-commando,
-    // dat een ander/werkend codepad gebruikt dan replaceAndPlay
-    // met een 'playlists/<naam>'-uri, wat op een bekende Volumio-bug
-    // stuit: /mnt/playlists/... i.p.v. het juiste /data/playlists/...)
+// -----------------------------
+    // PLAYLIST (fix v3: browse + replaceAndPlay, i.p.v. het kapotte
+    // interne playlistManager-mechanisme achter cmd=playplaylist)
     // -----------------------------
     async playPlaylist(data) {
- 
+
         this.logger.info(
-            `NFC Music: playlist afspelen via cmd=playplaylist: ${data.name}`
+            `NFC Music: playlist ophalen: ${data.name}`
         );
- 
-        const response = await axios.get(
-            'http://127.0.0.1:3000/api/v1/commands/',
+
+        const browseResponse = await axios.get(
+            'http://127.0.0.1:3000/api/v1/browse',
             {
-                params: {
-                    cmd: 'playplaylist',
-                    name: data.name
-                }
+                params: { uri: `playlists/${data.name}` }
             }
         );
- 
+
+        const lists = browseResponse.data && browseResponse.data.navigation
+            ? browseResponse.data.navigation.lists
+            : [];
+
+        const items = (lists && lists.length > 0) ? (lists[0].items || []) : [];
+
+        if (items.length === 0) {
+            throw new Error(`Playlist '${data.name}' is leeg of niet gevonden`);
+        }
+
         this.logger.info(
-            `NFC Music: playplaylist response: ${JSON.stringify(response.data)}`
+            `NFC Music: ${items.length} nummer(s) gevonden in playlist '${data.name}', starten...`
         );
- 
-        // Let op: deze REST-call meldt altijd "Success", zelfs als de
-        // playlistnaam niet bestaat - een HTTP 200 is dus geen garantie
-        // dat er ook echt iets gaat spelen. Controleer bij twijfel of
-        // de queue daadwerkelijk gevuld is.
+
+        const response = await axios.post(
+            'http://127.0.0.1:3000/api/v1/replaceAndPlay',
+            {
+                item: items[0],
+                list: items,
+                index: 0
+            },
+            {
+                headers: { 'Content-Type': 'application/json' }
+            }
+        );
+
+        this.logger.info(
+            `NFC Music: playlist gestart: HTTP ${response.status}`
+        );
+
         return response.status === 200;
     }
 

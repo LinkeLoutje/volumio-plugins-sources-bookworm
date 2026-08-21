@@ -30,6 +30,52 @@
       "content": []
     },
     {
+      "id": "section_track_search",
+      "element": "section",
+      "label": "Nummer zoeken (optioneel, voor 'Lokaal: los nummer')",
+      "icon": "fa-search",
+      "description": "Zoek op titel of artiest. De resultaten verschijnen in de sectie hieronder.",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "system_hardware/nfc_music",
+        "method": "searchTracks"
+      },
+      "saveButton": {
+        "label": "Zoeken",
+        "data": [
+          "track_search_query"
+        ]
+      },
+      "content": [
+        {
+          "id": "track_search_query",
+          "element": "input",
+          "type": "text",
+          "label": "Zoekterm",
+          "doc": "Bijv. een titel of artiestnaam",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "section_track_search_results",
+      "element": "section",
+      "label": "Zoekresultaten",
+      "icon": "fa-music",
+      "onSave": {
+        "type": "controller",
+        "endpoint": "system_hardware/nfc_music",
+        "method": "useSearchResult"
+      },
+      "saveButton": {
+        "label": "Gebruik dit nummer",
+        "data": [
+          "track_search_result"
+        ]
+      },
+      "content": []
+    },
+    {
       "id": "section_edit_tag",
       "element": "section",
       "label": "Tag bewerken",
