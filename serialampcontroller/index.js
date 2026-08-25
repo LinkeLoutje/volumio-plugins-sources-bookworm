@@ -51,7 +51,7 @@ serialampcontroller.prototype.onStart = function() {
     self.portOpen = false;
     self.status = 'stop';
     self.autoReconnect = false;
-    self.ampStatus.power='off';
+    self.ampStatus.power='standby';
     self.powerupAtVolumioStart = self.config.get('powerupOnBoot');
 
     self.loadAmpDefinitions() //load amp definitions from file
@@ -793,7 +793,28 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
     if (self.selectedAmp != undefined && self.selectedAmp.commands != undefined && self.selectedAmp.sources != undefined && self.selectedAmp.sourceCmd != undefined) {
         switch (cmd[0]) {
             case  "powerOn": 
-                if (self.ampStatus.Powering != 'up') cmdString = cmdString + self.selectedAmp.commands.powerOn;
+                if (self.ampStatus.Powering != 'up') {
+                    if (self.selectedAmp.wakePowerOnSequence != undefined) {
+                        // Some amps (e.g. Yamaha RS232 "remote code" protocols) keep their serial
+                        // receiver inactive in deep standby. A dedicated wake sequence must be sent
+                        // and given time to take effect before the normal powerOn code is accepted.
+                        // This only runs for amps that define this field; all other amps are unaffected.
+                        self.ampStatus.Powering = 'up';
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: sending wake-up sequence before powerOn');
+                        self.port.write(self.selectedAmp.wakePowerOnSequence,'ascii',function(err) {
+                            if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send wake-up sequence: ' + err);
+                        });
+                        setTimeout(() => {
+                            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay');
+                            self.port.write(self.selectedAmp.commands.powerOn,'ascii',function(err) {
+                                if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + self.selectedAmp.commands.powerOn + '": ' + err);
+                            });
+                        }, (self.selectedAmp.wakePowerOnDelay != undefined ? self.selectedAmp.wakePowerOnDelay : 2000));
+                        defer.resolve();
+                        return defer.promise;
+                    }
+                    cmdString = cmdString + self.selectedAmp.commands.powerOn;
+                }
                 self.ampStatus.Powering = 'up';
                 break;
             case  "powerToggle": 
