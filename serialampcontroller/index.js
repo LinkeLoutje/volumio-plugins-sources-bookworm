@@ -911,6 +911,22 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             self.commandRouter.volumioupdatevolume(self.getVolumeObject());
             self.messageReceived.emit('volume', args[0]);
             break;
+        case 'respVolumeStepUp':
+            // used for amps (e.g. Yamaha RS232 "remote code" protocols) that only acknowledge
+            // receipt of the volUp command instead of returning the actual (absolute) volume.
+            // We track the volume locally by incrementing it with the configured step size.
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepUp');
+            self.ampStatus.volume = Math.min(parseInt(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
+            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.messageReceived.emit('volume', self.ampStatus.volume);
+            break;
+        case 'respVolumeStepDown':
+            // see respVolumeStepUp above
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepDown');
+            self.ampStatus.volume = Math.max(parseInt(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
+            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.messageReceived.emit('volume', self.ampStatus.volume);
+            break;
         case 'respSource':
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled source is ' + args[0]);
             if (self.config.get('pauseWhenInputChanged')) {
@@ -1199,9 +1215,20 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
                     VolumeInteger = Math.min(VolumeInteger,self.config.get('maxVolume'));
                     VolumeInteger = Math.max(VolumeInteger,self.config.get('minVolume'));
                 }
-                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] alsavolume: set volume to integer value ' + VolumeInteger);
-                defer.resolve(self.waitForAcknowledge('volume'));
-                self.sendCommand('volValue',VolumeInteger);
+                if (self.selectedAmp.commands.volValue != undefined) {
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] alsavolume: set volume to integer value ' + VolumeInteger);
+                    defer.resolve(self.waitForAcknowledge('volume'));
+                    self.sendCommand('volValue',VolumeInteger);
+                } else {
+                    // Amp has no "set absolute volume" command (e.g. Yamaha RS232 "remote code"
+                    // protocols only support relative volUp/volDown). We cannot jump straight to an
+                    // arbitrary level, so we just accept the requested value into our local tracking
+                    // without sending anything, to avoid hanging on a response that will never come.
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] alsavolume: amp has no volValue command, cannot set absolute volume. Keeping locally tracked value.');
+                    self.ampStatus.volume = Math.round(VolumeInteger);
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    defer.resolve(self.getVolumeObject());
+                }
                 break;   
         };
         

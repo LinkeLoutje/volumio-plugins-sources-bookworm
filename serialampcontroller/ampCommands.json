@@ -365,6 +365,56 @@
             }
         },
         {
+            "vendor": "Yamaha",
+            "model": "RX-V1500",
+            "baudRate": 9600,
+            "parity": "none",
+            "dataBits": 8,
+            "stopBits": 1,
+            "rtscts": false,
+            "xon": false,
+            "xoff": false,
+            "xany": false,
+            "sources": ["Phono","CD","Tuner","CD-R","MD/Tape","DVD","DTV","CBL/SAT","VCR1","DVR/VCR2","V-AUX"],
+            "sourceCmd": ["\u000207a14\u0003","\u000207a15\u0003","\u000207a16\u0003","\u000207a19\u0003","\u000207ac9\u0003","\u000207ac1\u0003","\u000207a54\u0003","\u000207ac0\u0003","\u000207a0f\u0003","\u000207a13\u0003","\u000207a55\u0003"],
+            "sourceRespPostfix": ["07a14","07a15","07a16","07a19","07ac9","07ac1","07a54","07ac0","07a0f","07a13","07a55"],
+            "delimiter": "\u0003",
+            "commands": {
+                    "powerOn": "\u000207a1d\u0003",
+                    "powerOff": "\u000207a1e\u0003",
+                    "volUp": "\u000207a1a\u0003",
+                    "volDown": "\u000207a1b\u0003",
+                    "muteOn": "\u000207ea2\u0003",
+                    "muteOff": "\u000207ea3\u0003"
+                },
+            "responses": [
+                {"rx": "07a1d", "cmd": ["respPowerOn"]},
+                {"rx": "07a1e", "cmd": ["respPowerOff"]},
+                {"rx": "07ea2", "cmd": ["respMuteOn"]},
+                {"rx": "07ea3", "cmd": ["respMuteOff"]},
+                {"rx": "07a1a", "cmd": ["respVolumeStepUp"]},
+                {"rx": "07a1b", "cmd": ["respVolumeStepDown"]},
+                {"rx": "(07a14)", "cmd": ["respSource"]},
+                {"rx": "(07a15)", "cmd": ["respSource"]},
+                {"rx": "(07a16)", "cmd": ["respSource"]},
+                {"rx": "(07a19)", "cmd": ["respSource"]},
+                {"rx": "(07ac9)", "cmd": ["respSource"]},
+                {"rx": "(07ac1)", "cmd": ["respSource"]},
+                {"rx": "(07a54)", "cmd": ["respSource"]},
+                {"rx": "(07ac0)", "cmd": ["respSource"]},
+                {"rx": "(07a0f)", "cmd": ["respSource"]},
+                {"rx": "(07a13)", "cmd": ["respSource"]},
+                {"rx": "(07a55)", "cmd": ["respSource"]}
+            ],
+            "statusRequests": {
+                    "reqPower":"",
+                    "reqSource":"",
+                    "reqVolume":"",
+                    "reqMute":"",
+                    "reqModel":""
+                }
+        },
+        {
             "vendor": "Cambridge",
             "model":"CXA61",
             "baudRate": 9600,
