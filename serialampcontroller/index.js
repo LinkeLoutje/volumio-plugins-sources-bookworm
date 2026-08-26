@@ -235,6 +235,8 @@ serialampcontroller.prototype.updateAmpSettings = function (data) {
     self.config.set('startAtPowerup', (data['start_at_powerup']));
     self.config.set('powerupOnBoot', (data['powerup_on_boot']))
     self.config.set('powerupOnPlay', (data['powerup_on_play']))
+    self.config.set('powerOffOnStop', (data['power_off_on_stop']))
+    self.config.set('powerOffDelay', parseInt(data['power_off_delay']))
     self.commandRouter.getUIConfigOnPlugin('system_hardware', 'serialampcontroller', {})
     .then(config => {self.commandRouter.broadcastMessage('pushUiConfig', config)})
     // //configure the serial interface and open it
@@ -286,7 +288,32 @@ serialampcontroller.prototype.activateSocketIO = function () {
                 self.sendCommand('source',self.config.get('volumioInput'));
             }
         }
-        if (self.volumioStatus!==undefined) {self.volumioStatus = data;}
+        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] Extra debug 3. voor powerOff-check: volumioStatus.status=' + (self.volumioStatus!==undefined ? self.volumioStatus.status : 'undefined') + ' data.status=' + data.status + ' ampStatus.power=' + self.ampStatus.power + ' powerOffOnStop=' + self.config.get('powerOffOnStop'));
+        if ((self.volumioStatus !== undefined && self.volumioStatus.status == 'play') && (data.status == 'stop' || data.status == 'pause')) {
+            //status changed from play to stop/pause: (re)start the power-off-when-idle timer
+            if (self.config.get('powerOffOnStop') && self.ampStatus.power == 'on') {
+                if (self.powerOffTimer) clearTimeout(self.powerOffTimer);
+                var delayMs = self.config.get('powerOffDelay') * 60000;
+                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback stopped/paused, scheduling power-off in ' + self.config.get('powerOffDelay') + ' minute(s)');
+                self.powerOffTimer = setTimeout(() => {
+                    self.powerOffTimer = undefined;
+                    if (self.volumioStatus !== undefined && self.volumioStatus.status !== 'play' && self.ampStatus.power == 'on') {
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: idle timeout reached, powering off amp');
+                        self.sendCommand('powerOff');
+                    }
+                }, delayMs);
+            }
+        }
+        if (data.status == 'play' && self.powerOffTimer) {
+            //playback (re)started before the timer fired: cancel the pending power-off
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback resumed, cancelling scheduled power-off');
+            clearTimeout(self.powerOffTimer);
+            self.powerOffTimer = undefined;
+        }
+        // Always track the last known status (previously this only updated if already defined,
+        // which meant it was permanently stuck at 'undefined' and broke play->stop/pause transition
+        // detection used for powerOffOnStop above).
+        self.volumioStatus = data;
 	})
 }
 
@@ -476,6 +503,8 @@ serialampcontroller.prototype.getUIConfig = function() {
 			uiconf.sections[2].content[9].value = (self.config.get('startAtPowerup')==true);
 			uiconf.sections[2].content[10].value = (self.config.get('powerupOnPlay')==true);
 			uiconf.sections[2].content[11].value = (self.config.get('powerupOnBoot')==true);
+			uiconf.sections[2].content[12].value = (self.config.get('powerOffOnStop')==true);
+			uiconf.sections[2].content[13].value = (self.config.get('powerOffDelay'));
             // debug_settings section
 			uiconf.sections[3].content[0].value = (self.config.get('logging')==true)
             defer.resolve(uiconf);
@@ -809,6 +838,12 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                             self.port.write(self.selectedAmp.commands.powerOn,'ascii',function(err) {
                                 if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + self.selectedAmp.commands.powerOn + '": ' + err);
                             });
+                            if (self.selectedAmp.noStatusFeedback === true) {
+                                self.ampStatus.power = 'on';
+                                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                                self.messageReceived.emit('volume', self.ampStatus.volume);
+                                self.messageReceived.emit('mute', self.ampStatus.mute);
+                            }
                         }, (self.selectedAmp.wakePowerOnDelay != undefined ? self.selectedAmp.wakePowerOnDelay : 2000));
                         defer.resolve();
                         return defer.promise;
@@ -816,6 +851,26 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                     cmdString = cmdString + self.selectedAmp.commands.powerOn;
                 }
                 self.ampStatus.Powering = 'up';
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    // This amp never sends a parseable confirmation for power state (e.g. Yamaha
+                    // RS232 "remote code" protocols). Track the state ourselves instead of waiting
+                    // for a response that will never arrive. Only amps with this explicit flag are
+                    // affected; all other (properly acknowledging) amps keep the response-driven flow.
+                    self.ampStatus.power = 'on';
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('volume', self.ampStatus.volume);
+                    self.messageReceived.emit('mute', self.ampStatus.mute);
+                }
+                break;
+            case  "powerOff":
+                if (self.ampStatus.Powering != 'down') {
+                    cmdString = cmdString + self.selectedAmp.commands.powerOff;
+                }
+                self.ampStatus.Powering = 'down';
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    self.ampStatus.power = 'standby';
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                }
                 break;
             case  "powerToggle": 
                 if (self.ampStatus.Powering == '') cmdString = cmdString = cmdString + self.selectedAmp.commands.powerToggle;
@@ -827,9 +882,19 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 break;
             case  "volUp": 
                 cmdString = cmdString + self.selectedAmp.commands.volUp;
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    self.ampStatus.volume = Math.min(parseInt(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('volume', self.ampStatus.volume);
+                }
                 break;
             case  "volDown": 
                 cmdString = cmdString + self.selectedAmp.commands.volDown;
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    self.ampStatus.volume = Math.max(parseInt(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('volume', self.ampStatus.volume);
+                }
                 break;
             case  "volValue": 
                 cmdString = cmdString + self.selectedAmp.commands.volValue;
@@ -847,9 +912,21 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 break;
             case  "muteOn": 
                 cmdString = cmdString + self.selectedAmp.commands.muteOn;
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    if (self.config.get('pauseWhenMuted')) self.socket.emit('pause');
+                    self.ampStatus.mute = true;
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('mute', true);
+                }
                 break;
             case  "muteOff": 
                 cmdString = cmdString + self.selectedAmp.commands.muteOff;
+                if (self.selectedAmp.noStatusFeedback === true) {
+                    if (self.config.get('pauseWhenMuted')) self.socket.emit('play');
+                    self.ampStatus.mute = false;
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('mute', false);
+                }
                 break;
             case  "source": 
                 if (cmd[1]!=='...') {
@@ -1263,6 +1340,14 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
 serialampcontroller.prototype.waitForAcknowledge = function(eventType) {
     var self = this;
     var defer = libQ.defer();
+
+    if (self.selectedAmp !== undefined && self.selectedAmp.noStatusFeedback === true) {
+        // This amp never sends a parseable acknowledgement (see sendCommand), so waiting for
+        // one would hang forever. The relevant sendCommand case already updated self.ampStatus
+        // optimistically and emitted the event itself; resolve immediately here.
+        defer.resolve(self.getVolumeObject());
+        return defer.promise;
+    }
 
     self.messageReceived.once(eventType,(response) => {
         //check if response is correct, if yes, resolve the promise

@@ -66,5 +66,13 @@
     "powerupOnPlay": {
         "type": "boolean",
         "value": false
+    },
+    "powerOffOnStop": {
+        "type": "boolean",
+        "value": false
+    },
+    "powerOffDelay": {
+        "type": "number",
+        "value": 15
     }
 }

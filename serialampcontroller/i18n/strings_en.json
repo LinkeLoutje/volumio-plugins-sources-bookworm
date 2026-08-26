@@ -44,5 +44,9 @@
   "POWERUP_ON_PLAY": "Powerup on playback",
   "D_POWERUP_ON_PLAY": "Power up the amplifier when playback is started.",
   "POWERUP_ON_BOOT": "Powerup on Volumio-start",
-  "D_POWERUP_ON_BOOT": "Power up the amplifier when Volumio starts up."
+  "D_POWERUP_ON_BOOT": "Power up the amplifier when Volumio starts up.",
+  "POWER_OFF_ON_STOP": "Power off when idle",
+  "D_POWER_OFF_ON_STOP": "Power off the amplifier when Volumio has been stopped or paused for the configured delay.",
+  "POWER_OFF_DELAY": "Power off delay (minutes)",
+  "D_POWER_OFF_DELAY": "How long Volumio must be stopped or paused before the amplifier is powered off."
 }

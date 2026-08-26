@@ -105,7 +105,9 @@
           "switch_input_at_play",
           "start_at_powerup",
           "powerup_on_boot",
-          "powerup_on_play"
+          "powerup_on_play",
+          "power_off_on_stop",
+          "power_off_delay"
         ]
       },
       "content":[
@@ -201,6 +203,21 @@
           "label": "TRANSLATE.POWERUP_ON_BOOT",
           "doc": "TRANSLATE.D_POWERUP_ON_BOOT",
           "value": false
+        },
+        {
+          "id":"power_off_on_stop",
+          "element":"switch",
+          "label": "TRANSLATE.POWER_OFF_ON_STOP",
+          "doc": "TRANSLATE.D_POWER_OFF_ON_STOP",
+          "value": false
+        },
+        {
+          "id": "power_off_delay",
+          "type":"number",
+          "element": "input",
+          "doc": "TRANSLATE.D_POWER_OFF_DELAY",
+          "label": "TRANSLATE.POWER_OFF_DELAY",
+          "value": "15"
         }
       ]
     },
