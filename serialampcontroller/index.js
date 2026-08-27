@@ -288,7 +288,6 @@ serialampcontroller.prototype.activateSocketIO = function () {
                 self.sendCommand('source',self.config.get('volumioInput'));
             }
         }
-        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] Extra debug 3. voor powerOff-check: volumioStatus.status=' + (self.volumioStatus!==undefined ? self.volumioStatus.status : 'undefined') + ' data.status=' + data.status + ' ampStatus.power=' + self.ampStatus.power + ' powerOffOnStop=' + self.config.get('powerOffOnStop'));
         if ((self.volumioStatus !== undefined && self.volumioStatus.status == 'play') && (data.status == 'stop' || data.status == 'pause')) {
             //status changed from play to stop/pause: (re)start the power-off-when-idle timer
             if (self.config.get('powerOffOnStop') && self.ampStatus.power == 'on') {
@@ -539,12 +538,25 @@ serialampcontroller.prototype.attachParser = function (){
 
     const parserOptions = {};
     parserOptions.delimiter = self.selectedAmp.delimiter;
+    // Use 'binary' (latin1) instead of the default 'utf8' encoding: utf8 corrupts any raw byte
+    // >= 0x80 that isn't valid UTF-8 (replacing it with U+FFFD), which silently mangled non-ASCII
+    // response bytes before we ever got to inspect or match them. 'binary' maps each byte 1:1 to
+    // a JS character code (0-255), preserving the exact bytes the amp sent, while remaining fully
+    // compatible with existing pure-ASCII command matching for other amps.
+    parserOptions.encoding = 'binary';
     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] attachParser: Port is now open. Connecting Parser with delimiter: ' + parserOptions.delimiter);
     // pipe the port to a parser
     self.parser = self.port.pipe(new ReadlineParser(parserOptions));
     //attach a listener to the parser output
     self.parser.on('data', data => {
-        if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] [parser:data]: Listener received: " + data);
+        // Log both a hex dump (always safe/visible in journald, exact bytes) and a printable
+        // approximation, so raw responses can be inspected even when they contain non-ASCII or
+        // control bytes that would otherwise make journald hide the whole line as "blob data".
+        if (self.debugLogging) {
+            var hexDump = Buffer.from(data, 'binary').toString('hex');
+            var printable = data.replace(/[\x00-\x1F\x7F-\xFF]/g, c => '\\x' + c.charCodeAt(0).toString(16).padStart(2,'0'));
+            self.logger.info("[SERIALAMPCONTROLLER] [parser:data]: Listener received hex: " + hexDump + "  printable: " + printable);
+        }
         if (typeof(data) == 'string' && self.selectedAmp !== undefined && self.selectedAmp.responses !== undefined && self.selectedAmp.responses.length > 0) {
             var cmdFound = false;
             self.selectedAmp.responses.forEach(response => {
@@ -562,9 +574,9 @@ serialampcontroller.prototype.attachParser = function (){
                     }
                 } 
             })
-            if (self.debugLogging && !cmdFound) self.logger.info('[SERIALAMPCONTROLLER] parser:data: no matching regex for: ' + data);
+            if (self.debugLogging && !cmdFound) self.logger.info('[SERIALAMPCONTROLLER] parser:data: no matching regex for (hex): ' + Buffer.from(data, 'binary').toString('hex'));
         } else {
-            self.logger.error("[SERIALAMPCONTROLLER] parser:data: do not have any information, what to do with message: " + data + "is the 'ampCommands.json' complete?");
+            self.logger.error("[SERIALAMPCONTROLLER] parser:data: do not have any information, what to do with message (hex): " + Buffer.from(data, 'binary').toString('hex') + " - is the 'ampCommands.json' complete?");
         }
     });
 }
@@ -1008,6 +1020,28 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             self.ampStatus.volume = parseInt(args[0]);
             self.commandRouter.volumioupdatevolume(self.getVolumeObject());
             self.messageReceived.emit('volume', args[0]);
+            break;
+        case 'respVolumeHexDb':
+            // Yamaha RX-V1500 "system status" report: STX + "4026" + 2 hex digits + ETX.
+            // Confirmed (26-08-2026, via live testing) formula: dB = (hexValue - 199) / 2.
+            // hexValue 0x00 is a distinct "muted" sentinel, not a real -99.5dB reading.
+            // Verified against: min=0x27(-80dB), max=0xE8(+16.5dB) - both match the RX-V1500's
+            // official spec range exactly - and several live volume-step tests. See
+            // BACKLOG-yamaha-response-parsing.md for the full derivation.
+            var hexVal = parseInt(args[0], 16);
+            if (hexVal === 0) {
+                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp reports MUTE via volume status (0x00)');
+                self.ampStatus.mute = true;
+                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                self.messageReceived.emit('mute', true);
+            } else {
+                var realDb = (hexVal - 199) / 2;
+                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp reports real volume: ' + realDb + ' dB (raw 0x' + args[0] + ')');
+                self.ampStatus.mute = false;
+                self.ampStatus.volume = realDb;
+                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                self.messageReceived.emit('volume', realDb);
+            }
             break;
         case 'respVolumeStepUp':
             // used for amps (e.g. Yamaha RS232 "remote code" protocols) that only acknowledge
