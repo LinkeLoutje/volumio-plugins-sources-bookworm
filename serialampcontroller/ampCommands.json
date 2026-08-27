@@ -376,8 +376,8 @@
             "xoff": false,
             "xany": false,
             "sources": ["Phono","CD","Tuner","CD-R","MD/Tape","DVD","DTV","CBL/SAT","VCR1","DVR/VCR2","V-AUX"],
-            "sourceCmd": ["\u000207a14\u0003","\u000207a15\u0003","\u000207a16\u0003","\u000207a19\u0003","\u000207ac9\u0003","\u000207ac1\u0003","\u000207a54\u0003","\u000207ac0\u0003","\u000207a0f\u0003","\u000207a13\u0003","\u000207a55\u0003"],
-            "sourceRespPostfix": ["07a14","07a15","07a16","07a19","07ac9","07ac1","07a54","07ac0","07a0f","07a13","07a55"],
+            "sourceCmd": ["\u000207a14\u0003","\u000207a15\u0003","\u000207a16\u0003","\u000207a19\u0003","\u000207a18\u0003","\u000207ac1\u0003","\u000207a54\u0003","\u000207ac0\u0003","\u000207a0f\u0003","\u000207a13\u0003","\u000207a55\u0003"],
+            "sourceRespPostfix": ["07a14","07a15","07a16","07a19","07a18","07ac1","07a54","07ac0","07a0f","07a13","07a55"],
             "delimiter": "\u0003",
             "commands": {
                     "powerOn": "\u000207a1d\u0003",
@@ -385,8 +385,11 @@
                     "volUp": "\u000207a1a\u0003",
                     "volDown": "\u000207a1b\u0003",
                     "muteOn": "\u000207ea2\u0003",
-                    "muteOff": "\u000207ea3\u0003"
+                    "muteOff": "\u000207ea3\u0003",
+                    "volValue": "\u0002230##\u0003"
                 },
+            "volValueIsYamahaHexDb": true,
+            "volValueSafetyMaxDb": -20,
             "wakePowerOnSequence": "\u0011000\u0003",
             "wakePowerOnDelay": 2000,
             "noStatusFeedback": true,
@@ -402,7 +405,7 @@
                 {"rx": "(07a15)", "cmd": ["respSource"]},
                 {"rx": "(07a16)", "cmd": ["respSource"]},
                 {"rx": "(07a19)", "cmd": ["respSource"]},
-                {"rx": "(07ac9)", "cmd": ["respSource"]},
+                {"rx": "(07a18)", "cmd": ["respSource"]},
                 {"rx": "(07ac1)", "cmd": ["respSource"]},
                 {"rx": "(07a54)", "cmd": ["respSource"]},
                 {"rx": "(07ac0)", "cmd": ["respSource"]},

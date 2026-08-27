@@ -856,8 +856,13 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                                 self.messageReceived.emit('volume', self.ampStatus.volume);
                                 self.messageReceived.emit('mute', self.ampStatus.mute);
                             }
+                            // Resolve only now, AFTER the powerOn code has actually been sent - not
+                            // immediately after scheduling it. Callers doing
+                            // sendCommand('powerOn').then(_ => sendCommand('source', ...)) would
+                            // otherwise fire the source-switch while the amp is still mid wake-up,
+                            // where it gets silently ignored.
+                            defer.resolve();
                         }, (self.selectedAmp.wakePowerOnDelay != undefined ? self.selectedAmp.wakePowerOnDelay : 2000));
-                        defer.resolve();
                         return defer.promise;
                     }
                     cmdString = cmdString + self.selectedAmp.commands.powerOn;
@@ -909,14 +914,43 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 }
                 break;
             case  "volValue": 
-                cmdString = cmdString + self.selectedAmp.commands.volValue;
-                var count = (cmdString.match(/#/g) || []).length;
-                if (count > 0) {
-                    var re = new RegExp("#".repeat(count));
-                    cmdString = cmdString.replace(re,parseInt(cmd[1]).toString().padStart(count,"0"));
+                if (self.selectedAmp.volValueIsYamahaHexDb === true) {
+                    // Yamaha RX-V1500 "System Command" write format, confirmed from the CQC
+                    // open-source driver (SendSystemCommand/VolumeTo2Char): STX + "230" (main zone
+                    // set-volume-direct command code) + 2 hex digits + ETX. The 2 hex digits use the
+                    // same dB<->hex scale as the read-back reports: dB = (hexValue-199)/2, i.e.
+                    // hexValue = round(dB*2+199), clamped to the amp's actual range 0x27..0xE8.
+                    var requestedDb = parseFloat(cmd[1]);
+                    // HARD safety ceiling, independent of minVolume/maxVolume config: those are
+                    // user-editable and have repeatedly been reset to unsafe defaults by plugin
+                    // reinstalls/config-sync mismatches during development. This ceiling cannot be
+                    // bypassed by a misconfigured startupVolume or a UI mistake - it always applies.
+                    var safetyMaxDb = (self.selectedAmp.volValueSafetyMaxDb !== undefined) ? self.selectedAmp.volValueSafetyMaxDb : -20;
+                    if (isNaN(requestedDb)) {
+                        // An empty/invalid config value (e.g. a blank startupVolume field) must NOT
+                        // silently fall through: NaN > safetyMaxDb is always false in JS, so a plain
+                        // "too high" check would not catch this and could send a corrupt command.
+                        self.logger.error('[SERIALAMPCONTROLLER] sendCommand: volValue received invalid/empty value "' + cmd[1] + '", falling back to safety ceiling ' + safetyMaxDb + 'dB.');
+                        requestedDb = safetyMaxDb;
+                    } else if (requestedDb > safetyMaxDb) {
+                        self.logger.warn('[SERIALAMPCONTROLLER] sendCommand: requested volValue ' + requestedDb + 'dB exceeds safety ceiling of ' + safetyMaxDb + 'dB - clamping to protect speakers.');
+                        requestedDb = safetyMaxDb;
+                    }
+                    var hexVal = Math.round(requestedDb * 2 + 199);
+                    hexVal = Math.max(0x27, Math.min(0xE8, hexVal));
+                    var hexStr = hexVal.toString(16).toUpperCase().padStart(2,'0');
+                    cmdString = cmdString + self.selectedAmp.commands.volValue.replace('##', hexStr);
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: volValue ' + requestedDb + 'dB -> hex 0x' + hexStr);
                 } else {
-                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: volValue command string has no ## characters. Do not know how to send volume value.')
-                    cmdString = '';
+                    cmdString = cmdString + self.selectedAmp.commands.volValue;
+                    var count = (cmdString.match(/#/g) || []).length;
+                    if (count > 0) {
+                        var re = new RegExp("#".repeat(count));
+                        cmdString = cmdString.replace(re,parseInt(cmd[1]).toString().padStart(count,"0"));
+                    } else {
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: volValue command string has no ## characters. Do not know how to send volume value.')
+                        cmdString = '';
+                    }
                 }
                 break;
             case  "mute": 
