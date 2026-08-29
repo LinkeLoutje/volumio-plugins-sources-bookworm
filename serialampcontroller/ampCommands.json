@@ -389,7 +389,7 @@
                     "volValue": "\u0002230##\u0003"
                 },
             "volValueIsYamahaHexDb": true,
-            "volValueSafetyMaxDb": -20,
+            "volValueSafetyMaxDb": -30,
             "wakePowerOnSequence": "\u0011000\u0003",
             "wakePowerOnDelay": 2000,
             "noStatusFeedback": true,

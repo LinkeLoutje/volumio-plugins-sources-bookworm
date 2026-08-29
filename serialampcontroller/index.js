@@ -224,10 +224,10 @@ serialampcontroller.prototype.updateAmpSettings = function (data) {
     var defer = libQ.defer();
     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] updateAmpSettings: Saving Amplifier Settings:' + JSON.stringify(data));
     self.config.set('volumioInput', data['volumio_input'].label);
-    self.config.set('minVolume', parseInt(data['min_volume']));
-    self.config.set('maxVolume', parseInt(data['max_volume']));
-    self.config.set('startupVolume',  parseInt(data['startup_volume']));
-    self.config.set('volumeSteps', parseInt(data['volume_steps']));
+    self.config.set('minVolume', parseFloat(data['min_volume']));
+    self.config.set('maxVolume', parseFloat(data['max_volume']));
+    self.config.set('startupVolume',  parseFloat(data['startup_volume']));
+    self.config.set('volumeSteps', parseFloat(data['volume_steps']));
     self.config.set('mapTo100', (data['map_to_100']));
     self.config.set('pauseWhenMuted', (data['pause_when_muted']));
     self.config.set('pauseWhenInputChanged', (data['pause_when_input_changed']));
@@ -249,7 +249,7 @@ serialampcontroller.prototype.updateAmpSettings = function (data) {
     //     }
     // })
     //update Volume Settings and announce the updated settings to Volumio
-    .then(_ => self.alsavolume(this.config.get('startupVolume')))
+    .then(_ => self.alsavolume(this.config.get('startupVolume'), true))
     .then(_ => self.initVolumeSettings())
     .then(_=> {
         defer.resolve();        
@@ -661,7 +661,7 @@ serialampcontroller.prototype.openSerialPort = function (){
                     //determine the current settings of the amp
                     self.getAmpStatus()
                     // //update Volume Settings and announce the updated settings to Volumio
-                    .then(_ => self.alsavolume(this.config.get('startupVolume')))
+                    .then(_ => self.alsavolume(this.config.get('startupVolume'), true))
                     .then(_ => self.initVolumeSettings());
                 });
                 self.port.open(err=>{
@@ -780,7 +780,7 @@ serialampcontroller.prototype.connectTcpIp = function() {
     //determine the current settings of the amp
     self.getAmpStatus()
     // //update Volume Settings and announce the updated settings to Volumio
-    .then(_ => self.alsavolume(this.config.get('startupVolume')))
+    .then(_ => self.alsavolume(this.config.get('startupVolume'), true))
     .then(_ => self.initVolumeSettings());
 
 }
@@ -900,7 +900,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
             case  "volUp": 
                 cmdString = cmdString + self.selectedAmp.commands.volUp;
                 if (self.selectedAmp.noStatusFeedback === true) {
-                    self.ampStatus.volume = Math.min(parseInt(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
+                    self.ampStatus.volume = Math.min(parseFloat(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
                     self.commandRouter.volumioupdatevolume(self.getVolumeObject());
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                 }
@@ -908,7 +908,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
             case  "volDown": 
                 cmdString = cmdString + self.selectedAmp.commands.volDown;
                 if (self.selectedAmp.noStatusFeedback === true) {
-                    self.ampStatus.volume = Math.max(parseInt(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
+                    self.ampStatus.volume = Math.max(parseFloat(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
                     self.commandRouter.volumioupdatevolume(self.getVolumeObject());
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                 }
@@ -1082,14 +1082,14 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             // receipt of the volUp command instead of returning the actual (absolute) volume.
             // We track the volume locally by incrementing it with the configured step size.
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepUp');
-            self.ampStatus.volume = Math.min(parseInt(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
+            self.ampStatus.volume = Math.min(parseFloat(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
             self.commandRouter.volumioupdatevolume(self.getVolumeObject());
             self.messageReceived.emit('volume', self.ampStatus.volume);
             break;
         case 'respVolumeStepDown':
             // see respVolumeStepUp above
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepDown');
-            self.ampStatus.volume = Math.max(parseInt(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
+            self.ampStatus.volume = Math.max(parseFloat(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
             self.commandRouter.volumioupdatevolume(self.getVolumeObject());
             self.messageReceived.emit('volume', self.ampStatus.volume);
             break;
@@ -1256,7 +1256,7 @@ serialampcontroller.prototype.sendStatusRequest = function(messageType) {
 }
 
 //override the alsavolume function to send volume commands to the amp
-serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
+serialampcontroller.prototype.alsavolume = function (VolumeInteger, isRawValue) {
 	var self = this;
     var defer = libQ.defer();
     
@@ -1330,7 +1330,7 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
                         self.volume.vol = self.volume.premutevolume;
                         if (self.config.get('mapTo100')) {
                             //calculate the equivalent volume on a 0...100 scale
-                            self.ampVolume = parseInt(self.volume.vol * (self.config.get('maxVolume')-self.config.get('minVolume'))/100+self.config.get('minVolume'));
+                            self.ampVolume = parseFloat(self.volume.vol) * (self.config.get('maxVolume')-self.config.get('minVolume'))/100+self.config.get('minVolume');
                         } else {
                             self.ampVolume = self.volume.vol;
                         }
@@ -1354,7 +1354,7 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
                     } else {
                         //amp only supports sending of absolute volume
                         defer.resolve(self.waitForAcknowledge('volume'));
-                        self.sendCommand('volValue',Math.min(parseInt(self.volume.vol + self.config.get('volumeSteps')),self.config.get('maxVolume')))
+                        self.sendCommand('volValue',Math.min(parseFloat(self.volume.vol) + self.config.get('volumeSteps'),self.config.get('maxVolume')))
                     }
                 }
                 break;
@@ -1369,22 +1369,37 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger) {
                     } else {
                         //amp only supports sending of absolute volume
                         defer.resolve(self.waitForAcknowledge('volume'));
-                        self.sendCommand('volValue', Math.max(parseInt(self.volume.vol - self.config.get('volumeSteps')),self.config.get('minVolume')))
+                        self.sendCommand('volValue', Math.max(parseFloat(self.volume.vol) - self.config.get('volumeSteps'),self.config.get('minVolume')))
                     }
                 }
             break;
             default:
             //set volume to integer
-                if (self.config.get('mapTo100')) {
+                if (isRawValue) {
+                    // Value is already expressed in the amp's native scale (e.g. raw dB), same
+                    // convention as minVolume/maxVolume - skip the percentage transform entirely.
+                    // Used for startupVolume, so it means the same thing regardless of mapTo100.
+                } else if (self.config.get('mapTo100')) {
                     VolumeInteger = self.config.get('minVolume') + VolumeInteger/100 * (self.config.get('maxVolume') - self.config.get('minVolume') );
                 } else {
                     VolumeInteger = Math.min(VolumeInteger,self.config.get('maxVolume'));
                     VolumeInteger = Math.max(VolumeInteger,self.config.get('minVolume'));
                 }
+                // Always clamp to the configured bounds, regardless of which path set VolumeInteger.
+                VolumeInteger = Math.min(VolumeInteger, self.config.get('maxVolume'));
+                VolumeInteger = Math.max(VolumeInteger, self.config.get('minVolume'));
                 if (self.selectedAmp.commands.volValue != undefined) {
                     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] alsavolume: set volume to integer value ' + VolumeInteger);
                     defer.resolve(self.waitForAcknowledge('volume'));
                     self.sendCommand('volValue',VolumeInteger);
+                    if (self.selectedAmp.noStatusFeedback === true) {
+                        // Reflect the value we just sent immediately instead of waiting on a status
+                        // report that may arrive late or not at all - this is what was causing the
+                        // Volumio slider to snap back to a stale position after a manual change.
+                        self.ampStatus.volume = VolumeInteger;
+                        self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                        self.messageReceived.emit('volume', VolumeInteger);
+                    }
                 } else {
                     // Amp has no "set absolute volume" command (e.g. Yamaha RS232 "remote code"
                     // protocols only support relative volUp/volDown). We cannot jump straight to an
