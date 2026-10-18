@@ -1,23 +1,25 @@
 'use strict';
 
-async function handleTagAction(action, player, logger) {
+/*
+ * Voert één actie uit een tag uit.
+ * - 'play'    -> player (album, nummer, playlist, Spotify)
+ * - 'control' -> controls (play/pauze, volgende, vorige, volume)
+ */
+async function handleTagAction(action, player, logger, controls) {
 
-    switch (action.action) {
+    switch (action && action.action) {
 
         case 'play':
             return await handlePlay(action, player, logger);
 
-        case 'pause':
-            return await player.pause?.();
-
-        case 'next':
-            return await player.next?.();
-
-        case 'previous':
-            return await player.previous?.();
+        case 'control':
+            if (!controls) {
+                throw new Error('Controls not available');
+            }
+            return await controls.run(action);
 
         default:
-            throw new Error(`Onbekende action: ${action.action}`);
+            throw new Error(`Unknown action: ${action && action.action}`);
     }
 }
 

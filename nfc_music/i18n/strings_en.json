@@ -4,5 +4,18 @@
   "NFC_ACTION_PLAY": "Play",
   "NFC_ACTION_TRACK": "Track",
   "NFC_ACTION_ALBUM": "Album",
-  "NFC_ACTION_PLAYLIST": "Playlist"
+  "NFC_ACTION_PLAYLIST": "Playlist",
+  "ACTION_CONTROL_TOGGLE": "Control: play / pause",
+  "ACTION_CONTROL_NEXT": "Control: next track",
+  "ACTION_CONTROL_PREV": "Control: restart track / previous track",
+  "ACTION_CONTROL_VOLUME_UP": "Control: volume up",
+  "ACTION_CONTROL_VOLUME_DOWN": "Control: volume down",
+  "ACTION_CONTROL_VOLUME_SET": "Control: set volume",
+  "FIELD_VOLUME_STEP": "Step size",
+  "FIELD_VOLUME_STEP_UP_DOC": "How much the volume goes up per scan (1-100).",
+  "FIELD_VOLUME_STEP_DOWN_DOC": "How much the volume goes down per scan (1-100).",
+  "FIELD_VOLUME_VALUE": "Volume (0-100)",
+  "FIELD_PREV_DOC": "First scan restarts the track; scan again within 3 seconds for the previous track.",
+  "TOAST_NEW_TAG": "New tag scanned: {uid}",
+  "TOAST_ACTION_FAILED": "{name}: {error}"
 }

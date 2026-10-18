@@ -6,7 +6,13 @@ const fs = require('fs');
 const path = require('path');
 
 const Player = require('./lib/player');
+const Controls = require('./lib/controls');
 const { handleTagAction } = require('./lib/tag-handler');
+const { createTranslator } = require('./lib/i18n');
+
+const ENDPOINT = 'system_hardware/nfc_music';
+// Zelfde tag binnen deze tijd = dubbel event van pcsclite (status flikkert).
+const SCAN_DEBOUNCE_MS = 1200;
 
 
 module.exports = NfcMusic;
@@ -23,6 +29,9 @@ function NfcMusic(context) {
     this.config = null;
     this.nfcReader = null;
     this.player = null;
+    this.controls = null;
+    this.lastScan = { uid: null, at: 0 };
+    this.translator = null;
     this.tags = {}; // persisted
     this.activeTag = null;
     this.activeEditTag = null;
@@ -203,6 +212,8 @@ NfcMusic.prototype.onStart = function () {
         commandRouter: this.commandRouter
     });
 
+    this.controls = new Controls(this.commandRouter, this.logger);
+
 
     // =========================================================
     // 3. TAG HANDLER (LOGICA LAYER - tijdelijk verwijderd)
@@ -222,49 +233,8 @@ NfcMusic.prototype.onStart = function () {
 
         logger: this.logger,
 
-        onTag: async (uid) => {
-
-            this.logger.info(`NFC Music: tag ontvangen: ${uid}`);
-
-            // =================================================
-            // 4.1.1 STATE UPDATE
-            // =================================================
-
-            this.activeTag = uid;
-
-            // optioneel: runtime cache (voor UI edit flow later)
-            this.scannedTags[uid] = this.tags[uid] || {
-                name: `Onbekende tag (${uid})`,
-                actions: []
-            };
-
-            // =================================================
-            // 4.1.2 PLAYBACK ENGINE
-            // =================================================
-
-            try {
-
-                const tag = this.tags[uid];
-
-                if (!tag) {
-                    this.logger.warn(`NFC Music: onbekende tag: ${uid}`);
-                    return;
-                }
-
-                for (const action of tag.actions) {
-                    await handleTagAction(action, this.player, this.logger);
-                }
-
-            } catch (error) {
-                this.logger.error(`NFC Music: tag verwerken mislukt: ${error.message}`);
-            }
-
-            // =================================================
-            // 4.1.3 UI REFRESH
-            // =================================================
-
-            return this.refreshUI();
-        }
+        // Alles rond een scan (debounce, acties, UI verversen) staat in handleScan.
+        onTag: (uid) => this.handleScan(uid)
     });
 
 
@@ -279,6 +249,62 @@ NfcMusic.prototype.onStart = function () {
     );
 
     return libQ.resolve();
+};
+
+// =========================================================
+// SCAN AFHANDELEN
+// =========================================================
+NfcMusic.prototype.handleScan = async function (uid) {
+    const now = Date.now();
+
+    // pcsclite meldt een kaart soms twee keer kort na elkaar. De reader meldt
+    // alleen de overgang naar 'aanwezig', dus een kaart die blijft liggen
+    // vuurt niet opnieuw; weghalen en terugleggen wel.
+    if (uid === this.lastScan.uid && now - this.lastScan.at < SCAN_DEBOUNCE_MS) {
+        this.logger.info(`NFC Music: duplicate scan ignored: ${uid}`);
+        return;
+    }
+    this.lastScan = { uid: uid, at: now };
+
+    this.logger.info(`NFC Music: tag ontvangen: ${uid}`);
+    this.activeTag = uid;
+    this.scannedTags[uid] = this.tags[uid] || { name: uid, actions: [] };
+
+    try {
+        const tag = this.tags[uid];
+
+        if (!tag || !Array.isArray(tag.actions) || tag.actions.length === 0) {
+            this.logger.warn(`NFC Music: onbekende tag: ${uid}`);
+            this.commandRouter.pushToastMessage('info', 'NFC Music', this.t('TOAST_NEW_TAG', { uid: uid }));
+            return;
+        }
+
+        for (const action of tag.actions) {
+            try {
+                await handleTagAction(action, this.player, this.logger, this.controls);
+            } catch (error) {
+                this.logger.error(`NFC Music: actie mislukt voor ${uid}: ${error.message}`);
+                this.commandRouter.pushToastMessage('error', 'NFC Music',
+                    this.t('TOAST_ACTION_FAILED', { name: tag.name || uid, error: error.message }));
+            }
+        }
+    } finally {
+        // Altijd verversen, ook bij een onbekende tag of een mislukte actie,
+        // zodat 'Laatst gescande tag' op de configuratiepagina klopt.
+        await this.refreshUI();
+    }
+};
+
+/*
+ * Vertaling voor teksten die in index.js worden opgebouwd. De taal wordt
+ * elke keer opgevraagd, zodat een taalwissel in Volumio direct werkt.
+ */
+NfcMusic.prototype.t = function (key, vars) {
+    const lang = (this.commandRouter.sharedVars && this.commandRouter.sharedVars.get('language_code')) || 'en';
+    if (!this.translator || this.translator.lang !== lang) {
+        this.translator = { lang: lang, t: createTranslator(path.join(__dirname, 'i18n'), lang) };
+    }
+    return this.translator.t(key, vars);
 };
 
 // =====================================================
@@ -309,6 +335,8 @@ NfcMusic.prototype.onStop = function () {
 
     this.activeTag = null;
     this.scannedTags = {};
+    this.lastScan = { uid: null, at: 0 };
+    this.controls = null;
 
     // =====================================================
     // 3. PLAYER CLEANUP (optioneel maar netjes)
@@ -417,7 +445,7 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
         label: 'Bewerk deze tag',
         onClick: {
             type: 'controller',
-            endpoint: 'system_hardware/nfc_music',
+            endpoint: ENDPOINT,
             method: 'editLastScanned'
         }
     });
@@ -494,7 +522,9 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         { value: 'local_playlist', label: 'Lokaal: playlist' },
         { value: 'spotify_album', label: 'Spotify: album' },
         { value: 'spotify_playlist', label: 'Spotify: playlist' }
-    ];
+    ].concat(Controls.COMMANDS.map(function (command) {
+        return { value: 'control_' + command, label: self.t('ACTION_CONTROL_' + command.toUpperCase()) };
+    }));
 
     section.content.push({
         id: 'edit_tag_uid',
@@ -606,13 +636,51 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         visibleIf: { field: 'actionType', value: 'spotify_playlist' }
     });
 
+    // --- Bediening ---
+    var controlData = actionKey.indexOf('control_') === 0 ? actionData : {};
+    section.content.push({
+        id: 'control_prev_info',
+        element: 'input',
+        type: 'text',
+        label: self.t('ACTION_CONTROL_PREV'),
+        value: self.t('FIELD_PREV_DOC'),
+        attributes: [{ readonly: true }],
+        visibleIf: { field: 'actionType', value: 'control_prev' }
+    });
+    section.content.push({
+        id: 'volume_step_up',
+        element: 'input',
+        type: 'number',
+        label: self.t('FIELD_VOLUME_STEP'),
+        doc: self.t('FIELD_VOLUME_STEP_UP_DOC'),
+        value: actionKey === 'control_volume_up' ? (controlData.step ?? Controls.DEFAULT_STEP) : Controls.DEFAULT_STEP,
+        visibleIf: { field: 'actionType', value: 'control_volume_up' }
+    });
+    section.content.push({
+        id: 'volume_step_down',
+        element: 'input',
+        type: 'number',
+        label: self.t('FIELD_VOLUME_STEP'),
+        doc: self.t('FIELD_VOLUME_STEP_DOWN_DOC'),
+        value: actionKey === 'control_volume_down' ? (controlData.step ?? Controls.DEFAULT_STEP) : Controls.DEFAULT_STEP,
+        visibleIf: { field: 'actionType', value: 'control_volume_down' }
+    });
+    section.content.push({
+        id: 'volume_value',
+        element: 'input',
+        type: 'number',
+        label: self.t('FIELD_VOLUME_VALUE'),
+        value: actionKey === 'control_volume_set' ? (controlData.value ?? Controls.DEFAULT_VOLUME) : Controls.DEFAULT_VOLUME,
+        visibleIf: { field: 'actionType', value: 'control_volume_set' }
+    });
+
     section.content.push({
         id: 'delete_tag_button',
         element: 'button',
         label: 'Verwijder deze tag',
         onClick: {
             type: 'controller',
-            endpoint: 'system_hardware/nfc_music',
+            endpoint: ENDPOINT,
             method: 'deleteCurrentTag'
         }
     });
@@ -729,6 +797,9 @@ NfcMusic.prototype.combinedActionTypeKey = function (action) {
     if (!action) {
         return 'local_album';
     }
+    if (action.action === 'control') {
+        return 'control_' + action.command;
+    }
     var source = action.source || 'local';
     var type = action.type || 'album';
     return source + '_' + type;
@@ -739,6 +810,22 @@ NfcMusic.prototype.combinedActionTypeKey = function (action) {
  * op basis van de dropdown-waarde en de bijbehorende formuliervelden.
  */
 NfcMusic.prototype.buildActionFromForm = function (actionType, data) {
+    if (typeof actionType === 'string' && actionType.indexOf('control_') === 0) {
+        var command = actionType.substring('control_'.length);
+        if (Controls.COMMANDS.indexOf(command) === -1) {
+            return null;
+        }
+        var controlData = {};
+        if (command === 'volume_up') {
+            controlData.step = toIntInRange(data.volume_step_up, 1, 100, Controls.DEFAULT_STEP);
+        } else if (command === 'volume_down') {
+            controlData.step = toIntInRange(data.volume_step_down, 1, 100, Controls.DEFAULT_STEP);
+        } else if (command === 'volume_set') {
+            controlData.value = toIntInRange(data.volume_value, 0, 100, Controls.DEFAULT_VOLUME);
+        }
+        return { action: 'control', command: command, data: controlData };
+    }
+
     switch (actionType) {
 
         case 'local_track':
@@ -837,3 +924,13 @@ NfcMusic.prototype.getConf = function (varName) {
 NfcMusic.prototype.setConf = function (varName, varValue) {
     this.config.set(varName, varValue);
 };
+
+
+// Getal uit een formulierveld, begrensd; ongeldig -> standaardwaarde.
+function toIntInRange(value, min, max, fallback) {
+    var n = parseInt(value, 10);
+    if (!isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(max, Math.max(min, n));
+}

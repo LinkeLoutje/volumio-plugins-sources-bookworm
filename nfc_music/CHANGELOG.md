@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- Control tags: play/pause, next track, restart/previous track, volume up/down (step size per tag,
+  default 5) and a fixed volume (default 20).
+- Duplicate scans of the same tag within 1.2 s are ignored.
+- Translations for new strings in `i18n/strings_en.json` and `i18n/strings_nl.json`.
+
 ### Fixed
 - Tracks and albums are matched safely: exact match on title + artist (+ album) first, whole-word
   partial match only as a fallback, and an error instead of a guess when several results remain.

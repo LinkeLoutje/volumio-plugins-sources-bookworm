@@ -25,6 +25,11 @@ Supported actions:
 |---|---|
 | Local album | artist, album |
 | Local track | artist, title (album optional) |
+| Control: play / pause | – |
+| Control: next track | – |
+| Control: restart track / previous track | – (scan again within 3 s for the previous track) |
+| Control: volume up / down | step size (default 5) |
+| Control: set volume | volume 0–100 (default 20) |
 
 Matching ignores case, accents and punctuation.
 

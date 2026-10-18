@@ -6,7 +6,10 @@
         "action": "play",
         "type": "album",
         "source": "local",
-        "data": { "artist": "Artist", "album": "Album name" }
+        "data": {
+          "artist": "Artist",
+          "album": "Album name"
+        }
       }
     ]
   },
@@ -17,7 +20,32 @@
         "action": "play",
         "type": "track",
         "source": "local",
-        "data": { "artist": "Artist", "title": "Song title" }
+        "data": {
+          "artist": "Artist",
+          "title": "Song title"
+        }
+      }
+    ]
+  },
+  "04A1B2C3D4E5F8": {
+    "name": "Volume up",
+    "actions": [
+      {
+        "action": "control",
+        "command": "volume_up",
+        "data": {
+          "step": 5
+        }
+      }
+    ]
+  },
+  "04A1B2C3D4E5F9": {
+    "name": "Play / pause",
+    "actions": [
+      {
+        "action": "control",
+        "command": "toggle",
+        "data": {}
       }
     ]
   }

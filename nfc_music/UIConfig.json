@@ -52,7 +52,10 @@
           "album_naam",
           "playlist_naam",
           "spotify_album_uri",
-          "spotify_playlist_uri"
+          "spotify_playlist_uri",
+          "volume_step_up",
+          "volume_step_down",
+          "volume_value"
         ]
       },
       "content": []

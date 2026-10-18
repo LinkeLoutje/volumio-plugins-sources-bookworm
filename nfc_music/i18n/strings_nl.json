@@ -1,0 +1,21 @@
+{
+  "PLUGIN_NFC_MUSIC_TITLE": "NFC Music",
+  "PLUGIN_NFC_MUSIC_TAGS": "Tags",
+  "NFC_ACTION_PLAY": "Afspelen",
+  "NFC_ACTION_TRACK": "Nummer",
+  "NFC_ACTION_ALBUM": "Album",
+  "NFC_ACTION_PLAYLIST": "Afspeellijst",
+  "ACTION_CONTROL_TOGGLE": "Bediening: play / pauze",
+  "ACTION_CONTROL_NEXT": "Bediening: volgende nummer",
+  "ACTION_CONTROL_PREV": "Bediening: begin nummer / vorige nummer",
+  "ACTION_CONTROL_VOLUME_UP": "Bediening: volume omhoog",
+  "ACTION_CONTROL_VOLUME_DOWN": "Bediening: volume omlaag",
+  "ACTION_CONTROL_VOLUME_SET": "Bediening: volume op vaste waarde",
+  "FIELD_VOLUME_STEP": "Stapgrootte",
+  "FIELD_VOLUME_STEP_UP_DOC": "Hoeveel het volume per scan omhoog gaat (1-100).",
+  "FIELD_VOLUME_STEP_DOWN_DOC": "Hoeveel het volume per scan omlaag gaat (1-100).",
+  "FIELD_VOLUME_VALUE": "Volume (0-100)",
+  "FIELD_PREV_DOC": "Eerste scan: terug naar het begin van het nummer. Binnen 3 seconden nog een keer: vorige nummer.",
+  "TOAST_NEW_TAG": "Nieuwe tag gescand: {uid}",
+  "TOAST_ACTION_FAILED": "{name}: {error}"
+}
