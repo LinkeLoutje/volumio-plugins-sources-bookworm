@@ -4,7 +4,7 @@
 	"description": "Play music on Volumio by scanning NFC tags with a PC/SC reader (e.g. ACR122U).",
 	"main": "index.js",
 	"scripts": {
-		"test": "node --check index.js && for f in lib/*.js; do node --check \"$f\"; done"
+		"test": "node --check index.js && node --test"
 	},
 	"author": "LinkeLoutje",
 	"license": "MIT",

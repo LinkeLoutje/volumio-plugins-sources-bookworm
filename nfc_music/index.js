@@ -525,6 +525,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         element: 'input',
         type: 'text',
         label: 'Titel Nummer',
+        doc: 'Hoofdletters, accenten en leestekens maken niet uit. Zijn er meerdere nummers met deze titel, vul dan ook artiest en/of album in.',
         value: actionData.title || '',
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
