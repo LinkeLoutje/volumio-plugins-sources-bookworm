@@ -8,10 +8,16 @@
  * 1. Vergelijken gebeurt op genormaliseerde tekst: hoofdletters, accenten en
  *    leestekens tellen niet mee. Letters en cijfers uit elk schrift blijven staan
  *    (Cyrillisch, Grieks, Japans, ...).
- * 2. Eerst exacte matches op titel + artiest (+ album als dat is ingevuld).
- * 3. Pas als er geen exacte match is: gedeeltelijke match op hele woorden,
- *    alleen voor de titel/albumnaam. De artiest moet altijd exact kloppen
- *    (anders matcht "Lorde" ook "Lorde Tribute Band").
+ * 2. Rangorde, de eerste niveau dat iets oplevert wint:
+ *      a. titel exact + artiest exact
+ *      b. één van de twee gedeeltelijk (op hele woorden), de ander exact:
+ *         "Queen" in "Queen & David Bowie", of "Royals" in "Royals (Live)".
+ *         Deze twee gevallen zijn gelijkwaardig: komen ze allebei voor, dan
+ *         is het niet eenduidig en kiest de gebruiker met het album.
+ *      c. titel en artiest allebei gedeeltelijk
+ *    Een volledig exacte match wint dus altijd. "The" vooraan de artiest telt niet mee.
+ * 3. Album (bij een los nummer) maakt de keuze nauwer als het iets oplevert;
+ *    sluit het alles uit (bv. een tikfout), dan wordt het genegeerd.
  * 4. Blijft er meer dan één kandidaat over, dan wordt er NIETS gestart maar
  *    een duidelijke fout gegeven. Liever geen muziek dan de verkeerde.
  */
@@ -75,13 +81,42 @@ function pickOne(candidates, what, wanted) {
     );
 }
 
+// "The Beatles" == "Beatles"
+function normalizeArtist(value) {
+    return normalize(value).replace(/^the /, '');
+}
+
+const exact = (have, want) => have === want;
+const words = (have, want) => containsWords(have, want);
+
+// Niveaus in volgorde van voorkeur; elk niveau is een lijst van
+// gelijkwaardige [titel-vergelijking, artiest-vergelijking]-paren.
+const TIERS = [
+    [[exact, exact]],
+    [[exact, words], [words, exact]],
+    [[words, words]]
+];
+
+function bestTier(candidates, wantedTitle, wantedArtist, ignoreArtist) {
+    for (const tier of TIERS) {
+        const found = candidates.filter(c => tier.some(([titleCmp, artistCmp]) =>
+            titleCmp(c.title, wantedTitle) &&
+            (!wantedArtist || ignoreArtist || artistCmp(c.artist, wantedArtist))
+        ));
+        if (found.length > 0) {
+            return found;
+        }
+    }
+    return [];
+}
+
 /*
  * lists:  searchResponse.data.navigation.lists van /api/v1/search
  * wanted: { title, artist?, album? }
  */
 function findTrack(lists, wanted) {
     const title = normalize(wanted && wanted.title);
-    const artist = normalize(wanted && wanted.artist);
+    const artist = normalizeArtist(wanted && wanted.artist);
     const album = normalize(wanted && wanted.album);
     const label = [wanted && wanted.artist, wanted && wanted.title].filter(Boolean).join(' - ');
 
@@ -92,30 +127,20 @@ function findTrack(lists, wanted) {
     const songs = flattenItems(lists, ['song']).map(item => ({
         item,
         title: normalize(item.title),
-        artist: normalize(item.artist),
+        artist: normalizeArtist(item.artist),
         album: normalize(item.album)
     }));
 
-    const narrowByAlbum = candidates => {
-        if (!album) {
-            return candidates;
+    let candidates = bestTier(songs, title, artist, false);
+
+    if (album && candidates.length > 1) {
+        const byAlbumExact = candidates.filter(c => c.album === album);
+        const byAlbumWords = candidates.filter(c => containsWords(c.album, album));
+        if (byAlbumExact.length > 0) {
+            candidates = byAlbumExact;
+        } else if (byAlbumWords.length > 0) {
+            candidates = byAlbumWords;
         }
-        return candidates.filter(c => c.album === album);
-    };
-
-    // 1. exact
-    let candidates = songs.filter(c =>
-        c.title === title && (!artist || c.artist === artist)
-    );
-    candidates = narrowByAlbum(candidates);
-
-    // 2. gedeeltelijk (hele woorden), alleen als er geen exacte match is
-    if (candidates.length === 0) {
-        candidates = songs.filter(c =>
-            containsWords(c.title, title) &&
-            (!artist || c.artist === artist)
-        );
-        candidates = narrowByAlbum(candidates);
     }
 
     return pickOne(candidates.map(c => c.item), 'Nummer', label);
@@ -128,7 +153,7 @@ function findTrack(lists, wanted) {
  */
 function findAlbum(lists, wanted) {
     const albumName = normalize(wanted && wanted.album);
-    const artist = normalize(wanted && wanted.artist);
+    const artist = normalizeArtist(wanted && wanted.artist);
     const label = [wanted && wanted.artist, wanted && wanted.album].filter(Boolean).join(' - ');
 
     if (!albumName) {
@@ -138,22 +163,16 @@ function findAlbum(lists, wanted) {
     const albums = flattenItems(lists, ['folder', 'album']).map(item => ({
         item,
         title: normalize(item.title),
-        artist: normalize(item.artist)
+        artist: normalizeArtist(item.artist)
     }));
 
     // Geeft deze Volumio-versie geen artiest bij albums mee, dan kunnen we er
-    // niet op filteren; de eenduidigheidscheck hieronder voorkomt dan alsnog
-    // dat een willekeurig album met dezelfde titel start.
-    const resultsHaveArtist = albums.some(a => a.artist);
-    const artistOk = a => !artist || !resultsHaveArtist || a.artist === artist;
+    // niet op filteren; de eenduidigheidscheck voorkomt dan alsnog dat een
+    // willekeurig album met dezelfde titel start.
+    const ignoreArtist = !albums.some(a => a.artist);
 
-    let candidates = albums.filter(a => a.title === albumName && artistOk(a));
-
-    if (candidates.length === 0) {
-        candidates = albums.filter(a => containsWords(a.title, albumName) && artistOk(a));
-    }
-
+    const candidates = bestTier(albums, albumName, artist, ignoreArtist);
     return pickOne(candidates.map(a => a.item), 'Album', label);
 }
 
-module.exports = { normalize, findTrack, findAlbum };
+module.exports = { normalize, normalizeArtist, findTrack, findAlbum };

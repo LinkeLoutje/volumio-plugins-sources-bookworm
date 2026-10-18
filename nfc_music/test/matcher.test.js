@@ -85,15 +85,46 @@ test('zelfde nummer op album en verzamelalbum: album beslist, anders fout', () =
         'Greatest Hits');
 });
 
-test('korte artiestennaam matcht niet een andere artiest', () => {
-    assert.throws(() => findTrack(lists(song('Lorde Tribute Band', 'X', 'Royals')),
-        { artist: 'Lorde', title: 'Royals' }), /niet gevonden/);
+test('exacte artiest wint van gedeeltelijke (Lorde vs Lorde Tribute Band)', () => {
+    const items = lists(song('Lorde Tribute Band', 'Melodrama', 'Royals', 'tribute'),
+        song('Lorde', 'Pure Heroine', 'Royals', 'lorde'));
+    assert.equal(findTrack(items, { artist: 'Lorde', title: 'Royals' }).uri, 'lorde');
+});
+
+test('gedeeltelijke artiest als er niets beters is ("Queen" -> "Queen & David Bowie")', () => {
+    const r = findTrack(lists(song('Queen & David Bowie', 'Hot Space', 'Under Pressure')),
+        { artist: 'Queen', title: 'Under Pressure' });
+    assert.equal(r.album, 'Hot Space');
+});
+
+test('"The" vooraan de artiest telt niet mee', () => {
+    const r = findTrack(lists(song('The Beatles', 'Abbey Road', 'Come Together')),
+        { artist: 'Beatles', title: 'Come Together' });
+    assert.equal(r.album, 'Abbey Road');
+});
+
+test('verkeerd album ingevuld bij een eenduidig nummer: album wordt genegeerd', () => {
+    const r = findTrack(lists(song('Queen', 'Jazz', "Don't Stop Me Now")),
+        { artist: 'Queen', title: "Don't Stop Me Now", album: 'Jaz' });
+    assert.equal(r.album, 'Jazz');
+});
+
+test('gedeeltelijke artiest en gedeeltelijke titel zijn gelijkwaardig: fout, album beslist', () => {
+    const items = lists(song('Lorde Tribute Band', 'Covers', 'Royals', 'tribute'),
+        song('Lorde', 'Live in Auckland', 'Royals (Live)', 'live'));
+    assert.throws(() => findTrack(items, { artist: 'Lorde', title: 'Royals' }), /niet eenduidig/);
+    assert.equal(findTrack(items, { artist: 'Lorde', title: 'Royals', album: 'Live in Auckland' }).uri, 'live');
 });
 
 test('hetzelfde resultaat in meerdere lijsten telt als één', () => {
     const s = song('Queen', 'Jazz', "Don't Stop Me Now");
     const r = findTrack([{ items: [s] }, { items: [{ ...s }] }], { title: "Don't stop me now" });
     assert.equal(r.uri, s.uri);
+});
+
+test('album: gedeeltelijke artiest als er niets beters is', () => {
+    const r = findAlbum(lists(folder('Simon & Garfunkel', 'Bookends')), { artist: 'Simon', album: 'Bookends' });
+    assert.equal(r.artist, 'Simon & Garfunkel');
 });
 
 test('album: zelfde titel bij meerdere artiesten, artiest beslist', () => {
