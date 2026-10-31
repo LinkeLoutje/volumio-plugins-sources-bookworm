@@ -519,9 +519,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     var actionTypeOptions = [
         { value: 'local_track', label: 'Lokaal: los nummer' },
         { value: 'local_album', label: 'Lokaal: album' },
-        { value: 'local_playlist', label: 'Lokaal: playlist' },
-        { value: 'spotify_album', label: 'Spotify: album' },
-        { value: 'spotify_playlist', label: 'Spotify: playlist' }
+        { value: 'local_playlist', label: 'Lokaal: playlist' }
     ].concat(Controls.COMMANDS.map(function (command) {
         return { value: 'control_' + command, label: self.t('ACTION_CONTROL_' + command.toUpperCase()) };
     }));
@@ -612,28 +610,6 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         label: 'Playlistnaam',
         value: actionKey === 'local_playlist' ? (actionData.name || '') : '',
         visibleIf: { field: 'actionType', value: 'local_playlist' }
-    });
-
-    // --- Spotify: album ---
-    section.content.push({
-        id: 'spotify_album_uri',
-        element: 'input',
-        type: 'text',
-        label: 'Spotify album URI',
-        doc: 'bijv. spotify:album:xxxxxxxx',
-        value: actionKey === 'spotify_album' ? (actionData.uri || '') : '',
-        visibleIf: { field: 'actionType', value: 'spotify_album' }
-    });
-
-    // --- Spotify: playlist ---
-    section.content.push({
-        id: 'spotify_playlist_uri',
-        element: 'input',
-        type: 'text',
-        label: 'Spotify playlist URI',
-        doc: 'bijv. spotify:playlist:xxxxxxxx',
-        value: actionKey === 'spotify_playlist' ? (actionData.uri || '') : '',
-        visibleIf: { field: 'actionType', value: 'spotify_playlist' }
     });
 
     // --- Bediening ---
@@ -791,7 +767,7 @@ NfcMusic.prototype.deleteCurrentTag = async function () {
 
 /*
  * Zet een (source, type) combinatie om naar de dropdown-waarde,
- * bijv. { type: 'album', source: 'spotify' } -> 'spotify_album'
+ * bijv. { type: 'album', source: 'local' } -> 'local_album'
  */
 NfcMusic.prototype.combinedActionTypeKey = function (action) {
     if (!action) {
@@ -859,26 +835,6 @@ NfcMusic.prototype.buildActionFromForm = function (actionType, data) {
                 source: 'local',
                 data: {
                     name: (data.playlist_naam || '').trim()
-                }
-            };
-
-        case 'spotify_album':
-            return {
-                action: 'play',
-                type: 'album',
-                source: 'spotify',
-                data: {
-                    uri: (data.spotify_album_uri || '').trim()
-                }
-            };
-
-        case 'spotify_playlist':
-            return {
-                action: 'play',
-                type: 'playlist',
-                source: 'spotify',
-                data: {
-                    uri: (data.spotify_playlist_uri || '').trim()
                 }
             };
 

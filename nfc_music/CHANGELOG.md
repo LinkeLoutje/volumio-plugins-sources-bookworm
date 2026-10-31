@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+### Removed
+- Spotify support (never functional): Volumio only acts as a Spotify Connect receiver and cannot start a
+  Spotify URI itself. Existing Spotify tags now show a clear "Spotify is not supported" message.
+- `amd64` from the supported architectures: the plugin uses a native module (`pcsclite`) and is only
+  built and tested on a Raspberry Pi 4 (armhf).
+
 ### Added
 - Control tags: play/pause, next track, restart/previous track, volume up/down (step size per tag,
   default 5) and a fixed volume (default 20).

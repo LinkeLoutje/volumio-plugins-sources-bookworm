@@ -129,32 +129,6 @@ class Player {
 
         return response.status === 200;
     }
-
-    // -----------------------------
-    // SPOTIFY
-    // -----------------------------
-    async playSpotify(data) {
-
-        this.logger.info(
-            `NFC Music: Spotify starten -> type=${data.type} uri=${data.uri}`
-        );
-
-        if (!data.uri) {
-            throw new Error('playSpotify: geen uri opgegeven');
-        }
-
-        const response = await api.post('/replaceAndPlay', {
-            service: 'spop',
-            uri: data.uri
-        });
-
-        this.logger.info(
-            `NFC Music: Spotify gestart: HTTP ${response.status}`
-        );
-
-        return response.status === 200;
-    }
-
 }
 
 module.exports = Player;

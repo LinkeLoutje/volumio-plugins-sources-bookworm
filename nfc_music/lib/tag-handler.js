@@ -2,7 +2,7 @@
 
 /*
  * Voert één actie uit een tag uit.
- * - 'play'    -> player (album, nummer, playlist, Spotify)
+ * - 'play'    -> player (album, nummer, playlist; alleen lokale bibliotheek)
  * - 'control' -> controls (play/pauze, volgende, vorige, volume)
  */
 async function handleTagAction(action, player, logger, controls) {
@@ -52,15 +52,10 @@ async function handlePlay(action, player, logger) {
         }
     }
 
-    // -------------------------
-    // SPOTIFY (nieuw pad)
-    // -------------------------
+    // Spotify wordt (nog) niet ondersteund: Volumio werkt alleen als Spotify
+    // Connect-ontvanger en kan niet zelf een Spotify-uri starten.
     if (source === 'spotify') {
-
-        return await player.playSpotify({
-            type,
-            ...data
-        });
+        throw new Error('Spotify is not supported');
     }
 
     throw new Error(`Onbekende source: ${source}`);

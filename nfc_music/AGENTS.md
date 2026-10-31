@@ -25,7 +25,7 @@ Write review comments in Dutch. Be concrete: name the file, the line and a fix.
 - Never write to `/volumio` or `/myvolumio`. `install.sh` must not overwrite existing system files
   or reinstall tools Volumio itself uses; it must end with `echo "plugininstallend"`.
 - `uninstall.sh` reverts what `install.sh` did and ends with `echo "pluginuninstallend"`.
-- No secrets, tokens or personal data in the repository (`config/tags.json`, `config/spotify.json`).
+- No secrets, tokens or personal data in the repository (`config/tags.json`).
 - A change that users will receive must bump `version` in `package.json` and update
   `volumio_info.changelog` and `CHANGELOG.md`.
 
