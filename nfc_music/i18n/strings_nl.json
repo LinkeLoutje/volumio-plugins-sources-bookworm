@@ -67,8 +67,6 @@
   "ERR_SPOTIFY_UNSUPPORTED": "Spotify wordt niet ondersteund",
   "ERR_CONTROLS_UNAVAILABLE": "Bediening niet beschikbaar",
   "ERR_UNKNOWN_COMMAND": "Onbekend bedieningscommando: {command}",
-  "ACTION_LOCAL_PLAYLIST": "Lokaal: afspeellijst",
   "ACTION_UNSUPPORTED": "Niet ondersteund: {type}",
-  "FIELD_PLAYLIST_NAME": "Naam afspeellijst",
   "TOAST_UNSUPPORTED_ACTION": "Deze actie kan hier niet worden opgeslagen ({type}). De tag is niet gewijzigd."
 }

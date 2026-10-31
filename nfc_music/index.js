@@ -550,14 +550,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         return { value: 'control_' + command, label: self.t('ACTION_CONTROL_' + command.toUpperCase()) };
     }));
 
-    // Lokale afspeellijsten zijn verborgen voor nieuwe tags tot ze betrouwbaar werken.
-    // Een bestaande playlist-tag houdt zijn optie, anders zou hij bij het bewerken
-    // stilletjes een album-tag worden.
-    if (actionKey === 'local_playlist') {
-        actionTypeOptions.splice(2, 0, { value: 'local_playlist', label: self.t('ACTION_LOCAL_PLAYLIST') });
-    }
-
-    // Een actie die dit formulier niet kent (bijv. een oude Spotify-tag) tonen als
+    // Een actie die dit formulier niet kent (bijv. een oude playlist- of Spotify-tag) tonen als
     // "niet ondersteund" in plaats van terug te vallen op een andere actie.
     // Opslaan weigert dan (buildActionFromForm geeft null) en de tag blijft ongewijzigd.
     if (firstAction && !actionTypeOptions.some(function (o) { return o.value === actionKey; })) {
@@ -640,16 +633,6 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         label: self.t('FIELD_ALBUM_NAME'),
         value: actionKey === 'local_album' ? (actionData.album || '') : '',
         visibleIf: { field: 'actionType', value: 'local_album' }
-    });
-
-    // --- Lokaal: playlist (alleen zichtbaar bij een bestaande playlist-tag) ---
-    section.content.push({
-        id: 'playlist_naam',
-        element: 'input',
-        type: 'text',
-        label: self.t('FIELD_PLAYLIST_NAME'),
-        value: actionKey === 'local_playlist' ? (actionData.name || '') : '',
-        visibleIf: { field: 'actionType', value: 'local_playlist' }
     });
 
     // --- Bediening ---
@@ -865,16 +848,6 @@ NfcMusic.prototype.buildActionFromForm = function (actionType, data) {
                 data: {
                     artist: (data.album_artist || '').trim(),
                     album: (data.album_naam || '').trim()
-                }
-            };
-
-        case 'local_playlist':
-            return {
-                action: 'play',
-                type: 'playlist',
-                source: 'local',
-                data: {
-                    name: (data.playlist_naam || '').trim()
                 }
             };
 

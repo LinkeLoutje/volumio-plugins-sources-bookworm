@@ -121,17 +121,16 @@ test('nieuwe tag: geen playlist-optie (verborgen tot het werkt)', () => {
     assert.ok(!editForm(plugin, 'NEW').values.includes('local_playlist'));
 });
 
-test('bestaande playlist-tag blijft een playlist-tag bij bewerken en opslaan (review)', async () => {
+test('bestaande playlist-tag: niet ondersteund, opslaan laat de tag ongewijzigd (playlist werkt nog niet)', async () => {
     const { plugin } = makePlugin();
-    plugin.saveTags = () => {};
-    plugin.tags = { P: { name: 'Kinderliedjes', actions: [{ action: 'play', type: 'playlist', source: 'local', data: { name: 'Kinderliedjes' } }] } };
-    const { select, section } = editForm(plugin, 'P');
-    assert.equal(select.value.value, 'local_playlist');
-    assert.equal(section.content.find(c => c.id === 'playlist_naam').value, 'Kinderliedjes');
+    plugin.saveTags = () => { throw new Error('mag niet opslaan'); };
+    const original = { name: 'Kinderliedjes', actions: [{ action: 'play', type: 'playlist', source: 'local', data: { name: 'Kinderliedjes' } }] };
+    plugin.tags = { P: JSON.parse(JSON.stringify(original)) };
+    const { select } = editForm(plugin, 'P');
+    assert.equal(select.value.label, 'Niet ondersteund: local_playlist');
 
-    await plugin.saveTag({ name: 'Kinderliedjes 2', actionType: { value: 'local_playlist' }, playlist_naam: 'Kinderliedjes' });
-    assert.deepEqual(plugin.tags.P.actions[0], { action: 'play', type: 'playlist', source: 'local', data: { name: 'Kinderliedjes' } });
-    assert.equal(plugin.tags.P.name, 'Kinderliedjes 2');
+    await plugin.saveTag({ name: 'Kinderliedjes', actionType: { value: 'local_playlist' } });
+    assert.deepEqual(plugin.tags.P, original);
 });
 
 test('onbekende actie (oude Spotify-tag): getoond als niet ondersteund, opslaan laat de tag ongewijzigd (review)', async () => {

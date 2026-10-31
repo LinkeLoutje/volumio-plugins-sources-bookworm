@@ -67,8 +67,6 @@
   "ERR_SPOTIFY_UNSUPPORTED": "Spotify is not supported",
   "ERR_CONTROLS_UNAVAILABLE": "Controls not available",
   "ERR_UNKNOWN_COMMAND": "Unknown control command: {command}",
-  "ACTION_LOCAL_PLAYLIST": "Local: playlist",
   "ACTION_UNSUPPORTED": "Not supported: {type}",
-  "FIELD_PLAYLIST_NAME": "Playlist name",
   "TOAST_UNSUPPORTED_ACTION": "This action cannot be saved here ({type}). The tag was not changed."
 }
