@@ -50,6 +50,7 @@
           "track_album",
           "album_artist",
           "album_naam",
+          "playlist_naam",
           "volume_step_up",
           "volume_step_down",
           "volume_value"

@@ -106,3 +106,53 @@ test('alle bedieningsopties staan in de keuzelijst, vertaald', () => {
         'Control: volume up', 'Control: volume down', 'Control: set volume'
     ]);
 });
+
+function editForm(plugin, uid) {
+    plugin.activeEditTag = uid;
+    const section = { content: [] };
+    plugin.buildEditTagSection(section);
+    const select = section.content.find(c => c.id === 'actionType');
+    return { section, select, values: select.options.map(o => o.value) };
+}
+
+test('nieuwe tag: geen playlist-optie (verborgen tot het werkt)', () => {
+    const { plugin } = makePlugin();
+    plugin.tags = { NEW: { name: 'nieuw', actions: [] } };
+    assert.ok(!editForm(plugin, 'NEW').values.includes('local_playlist'));
+});
+
+test('bestaande playlist-tag blijft een playlist-tag bij bewerken en opslaan (review)', async () => {
+    const { plugin } = makePlugin();
+    plugin.saveTags = () => {};
+    plugin.tags = { P: { name: 'Kinderliedjes', actions: [{ action: 'play', type: 'playlist', source: 'local', data: { name: 'Kinderliedjes' } }] } };
+    const { select, section } = editForm(plugin, 'P');
+    assert.equal(select.value.value, 'local_playlist');
+    assert.equal(section.content.find(c => c.id === 'playlist_naam').value, 'Kinderliedjes');
+
+    await plugin.saveTag({ name: 'Kinderliedjes 2', actionType: { value: 'local_playlist' }, playlist_naam: 'Kinderliedjes' });
+    assert.deepEqual(plugin.tags.P.actions[0], { action: 'play', type: 'playlist', source: 'local', data: { name: 'Kinderliedjes' } });
+    assert.equal(plugin.tags.P.name, 'Kinderliedjes 2');
+});
+
+test('onbekende actie (oude Spotify-tag): getoond als niet ondersteund, opslaan laat de tag ongewijzigd (review)', async () => {
+    const { plugin, log } = makePlugin();
+    plugin.saveTags = () => { throw new Error('mag niet opslaan'); };
+    const original = { name: 'Spotify', actions: [{ action: 'play', type: 'album', source: 'spotify', data: { uri: 'spotify:album:x' } }] };
+    plugin.tags = { S: JSON.parse(JSON.stringify(original)) };
+    const { select } = editForm(plugin, 'S');
+    assert.equal(select.value.value, 'spotify_album');
+    assert.equal(select.value.label, 'Niet ondersteund: spotify_album');
+
+    await plugin.saveTag({ name: 'Spotify', actionType: { value: 'spotify_album' } });
+    assert.deepEqual(plugin.tags.S, original);
+    assert.ok(log.some(l => l.includes('niet gewijzigd')));
+});
+
+test('errorText: eigen fouten vertaald, axios-/systeemfouten met hun eigen tekst (review)', () => {
+    const { plugin } = makePlugin();
+    const { PluginError } = require('../lib/errors');
+    assert.equal(plugin.errorText(new PluginError('ALBUM_NOT_FOUND', { wanted: 'X' })), 'Album niet gevonden: X');
+    const axiosError = Object.assign(new Error('timeout of 8000ms exceeded'), { code: 'ECONNABORTED' });
+    assert.equal(plugin.errorText(axiosError), 'timeout of 8000ms exceeded');
+    assert.equal(plugin.errorText({ code: 'ENOENT', message: 'no such file' }), 'no such file');
+});

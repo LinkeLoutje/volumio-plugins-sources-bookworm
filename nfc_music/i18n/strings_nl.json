@@ -48,7 +48,6 @@
   "TOAST_NO_TAG_SCANNED": "Nog geen tag gescand",
   "TOAST_NO_TAG_SELECTED": "Geen tag geselecteerd",
   "TOAST_NOTHING_TO_SAVE": "Er is geen tag geselecteerd om op te slaan",
-  "TOAST_UNKNOWN_ACTION_TYPE": "Onbekend actietype: {type}",
   "TOAST_SAVED": "Tag {uid} opgeslagen",
   "TOAST_SAVE_FAILED": "Opslaan mislukt: {error}",
   "TOAST_NOTHING_TO_DELETE": "Geen tag geselecteerd om te verwijderen",
@@ -67,5 +66,9 @@
   "ERR_UNKNOWN_SOURCE": "Onbekende bron: {source}",
   "ERR_SPOTIFY_UNSUPPORTED": "Spotify wordt niet ondersteund",
   "ERR_CONTROLS_UNAVAILABLE": "Bediening niet beschikbaar",
-  "ERR_UNKNOWN_COMMAND": "Onbekend bedieningscommando: {command}"
+  "ERR_UNKNOWN_COMMAND": "Onbekend bedieningscommando: {command}",
+  "ACTION_LOCAL_PLAYLIST": "Lokaal: afspeellijst",
+  "ACTION_UNSUPPORTED": "Niet ondersteund: {type}",
+  "FIELD_PLAYLIST_NAME": "Naam afspeellijst",
+  "TOAST_UNSUPPORTED_ACTION": "Deze actie kan hier niet worden opgeslagen ({type}). De tag is niet gewijzigd."
 }

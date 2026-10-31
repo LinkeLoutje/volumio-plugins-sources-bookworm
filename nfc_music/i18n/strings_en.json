@@ -48,7 +48,6 @@
   "TOAST_NO_TAG_SCANNED": "No tag scanned yet",
   "TOAST_NO_TAG_SELECTED": "No tag selected",
   "TOAST_NOTHING_TO_SAVE": "No tag selected to save",
-  "TOAST_UNKNOWN_ACTION_TYPE": "Unknown action type: {type}",
   "TOAST_SAVED": "Tag {uid} saved",
   "TOAST_SAVE_FAILED": "Saving failed: {error}",
   "TOAST_NOTHING_TO_DELETE": "No tag selected to delete",
@@ -67,5 +66,9 @@
   "ERR_UNKNOWN_SOURCE": "Unknown source: {source}",
   "ERR_SPOTIFY_UNSUPPORTED": "Spotify is not supported",
   "ERR_CONTROLS_UNAVAILABLE": "Controls not available",
-  "ERR_UNKNOWN_COMMAND": "Unknown control command: {command}"
+  "ERR_UNKNOWN_COMMAND": "Unknown control command: {command}",
+  "ACTION_LOCAL_PLAYLIST": "Local: playlist",
+  "ACTION_UNSUPPORTED": "Not supported: {type}",
+  "FIELD_PLAYLIST_NAME": "Playlist name",
+  "TOAST_UNSUPPORTED_ACTION": "This action cannot be saved here ({type}). The tag was not changed."
 }

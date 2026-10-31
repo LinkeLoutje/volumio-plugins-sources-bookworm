@@ -4,8 +4,10 @@
 ### Changed
 - The settings page, notifications and error messages are now translated: English by default, Dutch
   included. Log messages are in English.
-- Local playlists are hidden in the settings page until they work reliably (existing playlist tags
-  still play).
+- Local playlists can no longer be chosen for new tags until they work reliably. Existing playlist
+  tags still play and keep their playlist action when edited.
+- Editing a tag with an action the settings page does not support (e.g. an old Spotify tag) no longer
+  silently turns it into an album tag; saving is refused and the tag stays unchanged.
 
 ### Fixed
 - `install.sh`/`uninstall.sh` no longer execute their state file: it is parsed as data (known keys,
