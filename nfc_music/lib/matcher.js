@@ -1,5 +1,7 @@
 'use strict';
 
+const { PluginError } = require('./errors');
+
 /*
  * Zoekresultaten van Volumio koppelen aan wat er in een tag staat.
  * Pure functies (geen I/O), zodat ze los te testen zijn: zie test/matcher.test.js.
@@ -67,18 +69,16 @@ function describe(item) {
     return [item.artist, item.album, item.title].filter(Boolean).join(' - ');
 }
 
-function pickOne(candidates, what, wanted) {
+// kind: 'TRACK' of 'ALBUM' (deel van de foutcode, bijv. ERR_TRACK_NOT_FOUND)
+function pickOne(candidates, kind, wanted) {
     if (candidates.length === 1) {
         return candidates[0];
     }
     if (candidates.length === 0) {
-        throw new Error(`${what} niet gevonden: ${wanted}`);
+        throw new PluginError(`${kind}_NOT_FOUND`, { wanted });
     }
     const names = candidates.slice(0, 3).map(describe).join(' | ');
-    throw new Error(
-        `${what} niet eenduidig (${candidates.length} kandidaten: ${names}). ` +
-        'Vul artiest en/of album in om te kiezen.'
-    );
+    throw new PluginError(`${kind}_AMBIGUOUS`, { count: candidates.length, names });
 }
 
 // "The Beatles" == "Beatles"
@@ -121,7 +121,7 @@ function findTrack(lists, wanted) {
     const label = [wanted && wanted.artist, wanted && wanted.title].filter(Boolean).join(' - ');
 
     if (!title) {
-        throw new Error(`Ongeldige titel: "${wanted && wanted.title}"`);
+        throw new PluginError('INVALID_TITLE', { value: wanted && wanted.title });
     }
 
     const songs = flattenItems(lists, ['song']).map(item => ({
@@ -143,7 +143,7 @@ function findTrack(lists, wanted) {
         }
     }
 
-    return pickOne(candidates.map(c => c.item), 'Nummer', label);
+    return pickOne(candidates.map(c => c.item), 'TRACK', label);
 }
 
 /*
@@ -157,7 +157,7 @@ function findAlbum(lists, wanted) {
     const label = [wanted && wanted.artist, wanted && wanted.album].filter(Boolean).join(' - ');
 
     if (!albumName) {
-        throw new Error(`Ongeldige albumnaam: "${wanted && wanted.album}"`);
+        throw new PluginError('INVALID_ALBUM', { value: wanted && wanted.album });
     }
 
     const albums = flattenItems(lists, ['folder', 'album']).map(item => ({
@@ -172,7 +172,7 @@ function findAlbum(lists, wanted) {
     const ignoreArtist = !albums.some(a => a.artist);
 
     const candidates = bestTier(albums, albumName, artist, ignoreArtist);
-    return pickOne(candidates.map(a => a.item), 'Album', label);
+    return pickOne(candidates.map(a => a.item), 'ALBUM', label);
 }
 
 module.exports = { normalize, normalizeArtist, findTrack, findAlbum };

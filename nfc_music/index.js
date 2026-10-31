@@ -79,10 +79,10 @@ NfcMusic.prototype.migrateTagsFile = function () {
         if (!fs.existsSync(newFile) && fs.existsSync(oldFile)) {
             fs.mkdirSync(path.dirname(newFile), { recursive: true });
             fs.copyFileSync(oldFile, newFile);
-            this.logger.info(`NFC Music: tags.json gemigreerd naar ${newFile}`);
+            this.logger.info(`NFC Music: tags.json migrated to ${newFile}`);
         }
     } catch (e) {
-        this.logger.error(`NFC Music: migratie tags.json mislukt: ${e}`);
+        this.logger.error(`NFC Music: migrating tags.json failed: ${e}`);
     }
 };
 
@@ -91,19 +91,19 @@ NfcMusic.prototype.loadTags = function () {
     const tagsFile = this.getTagsFile();
 
     if (!fs.existsSync(tagsFile)) {
-        this.logger.info('NFC Music: nog geen tags.json, start met lege lijst');
+        this.logger.info('NFC Music: no tags.json yet, starting with an empty list');
         this.tags = {};
         return;
     }
 
     try {
-        this.logger.info(`NFC Music: tags laden uit ${tagsFile}`);
+        this.logger.info(`NFC Music: loading tags from ${tagsFile}`);
 
         const raw = fs.readFileSync(tagsFile, 'utf8');
         this.tags = raw ? JSON.parse(raw) : {};
 
         this.logger.info(
-            `NFC Music: ${Object.keys(this.tags).length} tag(s) geladen`
+            `NFC Music: ${Object.keys(this.tags).length} tag(s) loaded`
         );
 
     } catch (e) {
@@ -147,7 +147,7 @@ NfcMusic.prototype.saveTags = function () {
         // 4. atomic replace
         fs.renameSync(tmp, file);
 
-        this.logger.info('NFC Music: tags opgeslagen');
+        this.logger.info('NFC Music: tags saved');
 
     } catch (e) {
 
@@ -194,7 +194,7 @@ NfcMusic.prototype.refreshUI = function () {
 // =========================================================
 NfcMusic.prototype.onStart = function () {
 
-    this.logger.info('NFC Music: plugin starten');
+    this.logger.info('NFC Music: starting plugin');
 
     // =========================================================
     // 1. TAG STORAGE INITIALISATIE (persisted state)
@@ -247,7 +247,7 @@ NfcMusic.prototype.onStart = function () {
     this.nfcReader.start();
 
     this.logger.info(
-        'NFC Music: NFC reader geïnitialiseerd'
+        'NFC Music: NFC reader initialised'
     );
 
     return libQ.resolve();
@@ -262,11 +262,11 @@ NfcMusic.prototype.handleScan = async function (uid) {
     // Vangnet: een gestopte instantie (oude plugin na herstart) of een lege UID
     // mag niets doen.
     if (!this.running) {
-        this.logger.info(`NFC Music: scan genegeerd, plugin is gestopt: ${uid}`);
+        this.logger.info(`NFC Music: scan ignored, plugin is stopped: ${uid}`);
         return;
     }
     if (typeof uid !== 'string' || uid.length === 0) {
-        this.logger.error('NFC Music: scan zonder UID genegeerd');
+        this.logger.error('NFC Music: scan without UID ignored');
         return;
     }
 
@@ -279,7 +279,7 @@ NfcMusic.prototype.handleScan = async function (uid) {
     }
     this.lastScan = { uid: uid, at: now };
 
-    this.logger.info(`NFC Music: tag ontvangen: ${uid}`);
+    this.logger.info(`NFC Music: tag received: ${uid}`);
     this.activeTag = uid;
     this.scannedTags[uid] = this.tags[uid] || { name: uid, actions: [] };
 
@@ -287,7 +287,7 @@ NfcMusic.prototype.handleScan = async function (uid) {
         const tag = this.tags[uid];
 
         if (!tag || !Array.isArray(tag.actions) || tag.actions.length === 0) {
-            this.logger.warn(`NFC Music: onbekende tag: ${uid}`);
+            this.logger.warn(`NFC Music: unknown tag: ${uid}`);
             this.commandRouter.pushToastMessage('info', 'NFC Music', this.t('TOAST_NEW_TAG', { uid: uid }));
             return;
         }
@@ -296,9 +296,9 @@ NfcMusic.prototype.handleScan = async function (uid) {
             try {
                 await handleTagAction(action, this.player, this.logger, this.controls);
             } catch (error) {
-                this.logger.error(`NFC Music: actie mislukt voor ${uid}: ${error.message}`);
+                this.logger.error(`NFC Music: action failed for ${uid}: ${error.message}`);
                 this.commandRouter.pushToastMessage('error', 'NFC Music',
-                    this.t('TOAST_ACTION_FAILED', { name: tag.name || uid, error: error.message }));
+                    this.t('TOAST_ACTION_FAILED', { name: tag.name || uid, error: this.errorText(error) }));
             }
         }
     } finally {
@@ -320,6 +320,17 @@ NfcMusic.prototype.t = function (key, vars) {
     return this.translator.t(key, vars);
 };
 
+/*
+ * Foutmelding voor de gebruiker: fouten met een code (PluginError) in de
+ * taal van de gebruiker, andere fouten met hun eigen tekst.
+ */
+NfcMusic.prototype.errorText = function (error) {
+    if (error && error.code) {
+        return this.t('ERR_' + error.code, error.params);
+    }
+    return (error && error.message) || String(error);
+};
+
 // =====================================================
 // onStop (plugin stop lifecycle)
 // =====================================================
@@ -335,7 +346,7 @@ NfcMusic.prototype.onStop = function () {
     if (this.nfcReader) {
         try {
             this.nfcReader.stop();
-            this.logger.info('NFC Music: NFC reader gestopt');
+            this.logger.info('NFC Music: NFC reader stopped');
         } catch (e) {
             this.logger.error('NFC Music: error stopping reader ' + e);
         }
@@ -374,7 +385,7 @@ NfcMusic.prototype.onStop = function () {
 // =====================================================
 NfcMusic.prototype.onRestart = function () {
 
-    this.logger.info('NFC Music: plugin herstart');
+    this.logger.info('NFC Music: plugin restart');
 
     // Herstart = zelfde als stop/start cycle light
     this.activeTag = null;
@@ -410,7 +421,7 @@ NfcMusic.prototype.getUIConfig = function () {
         defer.resolve(uiconf);
 
     }).fail(function (error) {
-        self.logger.error('NFC Music: getUIConfig faalde: ' + error);
+        self.logger.error('NFC Music: getUIConfig failed: ' + error);
         defer.reject(new Error());
     });
 
@@ -430,8 +441,8 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
         section.content.push({
             id: 'last_scanned_info',
             element: 'input', type: 'text',
-            label: 'Status',
-            value: 'Nog geen tag gescand sinds de laatste herstart.'
+            label: self.t('FIELD_STATUS'),
+            value: self.t('LAST_SCANNED_NONE')
         });
         return;
     }
@@ -441,21 +452,21 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
     section.content.push({
         id: 'last_scanned_uid',
         element: 'input', type: 'text',
-        label: 'UID',
+        label: self.t('FIELD_UID'),
         value: uid
     });
 
     section.content.push({
         id: 'last_scanned_name',
         element: 'input', type: 'text',
-        label: 'Naam',
-        value: existing ? existing.name : 'Nog niet geregistreerd (nieuwe tag)'
+        label: self.t('FIELD_NAME'),
+        value: existing ? existing.name : self.t('LAST_SCANNED_NEW')
     });
 
     section.content.push({
         id: 'edit_last_scanned_button',
         element: 'button',
-        label: 'Bewerk deze tag',
+        label: self.t('BUTTON_EDIT_THIS_TAG'),
         onClick: {
             type: 'controller',
             endpoint: ENDPOINT,
@@ -479,8 +490,8 @@ NfcMusic.prototype.buildPickExistingSection = function (section) {
         section.content.push({
             id: 'no_existing_tags',
             element: 'input', type: 'text',
-            label: 'Info',
-            value: 'Er zijn nog geen tags geregistreerd.'
+            label: self.t('FIELD_INFO'),
+            value: self.t('NO_TAGS')
         });
         return;
     }
@@ -500,7 +511,7 @@ NfcMusic.prototype.buildPickExistingSection = function (section) {
     section.content.push({
         id: 'existingTagUid',
         element: 'select',
-        label: 'Tag',
+        label: self.t('FIELD_TAG'),
         value: defaultOption || options[0],
         options: options
     });
@@ -518,8 +529,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         section.content.push({
             id: 'edit_tag_info',
             element: 'input', type: 'text',
-            label: 'Info',
-            value: 'Kies eerst een tag hierboven (laatst gescand, of uit de lijst) om te bewerken.'
+            label: self.t('FIELD_INFO'),
+            value: self.t('EDIT_TAG_NONE')
         });
         return;
     }
@@ -530,9 +541,10 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     var actionData = (firstAction && firstAction.data) ? firstAction.data : {};
 
     var actionTypeOptions = [
-        { value: 'local_track', label: 'Lokaal: los nummer' },
-        { value: 'local_album', label: 'Lokaal: album' },
-        { value: 'local_playlist', label: 'Lokaal: playlist' }
+        { value: 'local_track', label: self.t('ACTION_LOCAL_TRACK') },
+        { value: 'local_album', label: self.t('ACTION_LOCAL_ALBUM') }
+        // Lokale afspeellijsten zijn verborgen tot ze betrouwbaar werken (nieuwe functie).
+        // Bestaande playlist-tags in tags.json blijven gewoon afspelen.
     ].concat(Controls.COMMANDS.map(function (command) {
         return { value: 'control_' + command, label: self.t('ACTION_CONTROL_' + command.toUpperCase()) };
     }));
@@ -540,7 +552,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     section.content.push({
         id: 'edit_tag_uid',
         element: 'input', type: 'text',
-        label: 'UID',
+        label: self.t('FIELD_UID'),
         value: uid
     });
 
@@ -548,14 +560,14 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'name',
         element: 'input',
         type: 'text',
-        label: 'Naam',
+        label: self.t('FIELD_NAME'),
         value: tag.name || uid
     });
 
     section.content.push({
         id: 'actionType',
         element: 'select',
-        label: 'Actietype',
+        label: self.t('FIELD_ACTION_TYPE'),
         value: actionTypeOptions.find(function (o) { return o.value === actionKey; }) || actionTypeOptions[1],
         options: actionTypeOptions
     });
@@ -565,8 +577,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'track_titel',
         element: 'input',
         type: 'text',
-        label: 'Titel Nummer',
-        doc: 'Hoofdletters, accenten en leestekens maken niet uit. Zijn er meerdere nummers met deze titel, vul dan ook artiest en/of album in.',
+        label: self.t('FIELD_TRACK_TITLE'),
+        doc: self.t('FIELD_TRACK_TITLE_DOC'),
         value: actionData.title || '',
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
@@ -574,7 +586,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'track_artist',
         element: 'input',
         type: 'text',
-        label: 'Artiest',
+        label: self.t('FIELD_ARTIST'),
         value: actionData.artist || '',
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
@@ -582,7 +594,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'track_album',
         element: 'input',
         type: 'text',
-        label: 'Album (optioneel)',
+        label: self.t('FIELD_ALBUM_OPTIONAL'),
         value: actionData.album || '',
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
@@ -591,8 +603,8 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'track_uri',
         element: 'input',
         type: 'text',
-        label: 'Track URI (optioneel)',
-        doc: 'Volledig pad zoals Volumio het kent, bijv. music-library/NAS/.../nummer.flac',
+        label: self.t('FIELD_TRACK_URI'),
+        doc: self.t('FIELD_TRACK_URI_DOC'),
         value: actionData.uri || '',
         visibleIf: { field: 'actionType', value: 'local_track' }
     });
@@ -602,7 +614,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'album_artist',
         element: 'input',
         type: 'text',
-        label: 'Artiest',
+        label: self.t('FIELD_ARTIST'),
         value: actionKey === 'local_album' ? (actionData.artist || '') : '',
         visibleIf: { field: 'actionType', value: 'local_album' }
     });
@@ -610,19 +622,9 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
         id: 'album_naam',
         element: 'input',
         type: 'text',
-        label: 'Albumnaam',
+        label: self.t('FIELD_ALBUM_NAME'),
         value: actionKey === 'local_album' ? (actionData.album || '') : '',
         visibleIf: { field: 'actionType', value: 'local_album' }
-    });
-
-    // --- Lokaal: playlist ---
-    section.content.push({
-        id: 'playlist_naam',
-        element: 'input',
-        type: 'text',
-        label: 'Playlistnaam',
-        value: actionKey === 'local_playlist' ? (actionData.name || '') : '',
-        visibleIf: { field: 'actionType', value: 'local_playlist' }
     });
 
     // --- Bediening ---
@@ -666,7 +668,7 @@ NfcMusic.prototype.buildEditTagSection = function (section) {
     section.content.push({
         id: 'delete_tag_button',
         element: 'button',
-        label: 'Verwijder deze tag',
+        label: self.t('BUTTON_DELETE_TAG'),
         onClick: {
             type: 'controller',
             endpoint: ENDPOINT,
@@ -684,7 +686,7 @@ NfcMusic.prototype.editLastScanned = function () {
     var self = this;
 
     if (!self.activeTag) {
-        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Nog geen tag gescand');
+        self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_NO_TAG_SCANNED'));
         return libQ.resolve({});
     }
 
@@ -700,7 +702,7 @@ NfcMusic.prototype.selectTagToEdit = function (data) {
         : data.existingTagUid;
 
     if (!uid) {
-        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen tag geselecteerd');
+        self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_NO_TAG_SELECTED'));
         return libQ.resolve({});
     }
 
@@ -713,8 +715,8 @@ NfcMusic.prototype.saveTag = async function (data) {
     var uid = self.activeEditTag;
 
     if (!uid) {
-        self.logger.error('saveTag: geen activeEditTag gezet');
-        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Er is geen tag geselecteerd om op te slaan');
+        self.logger.error('saveTag: no activeEditTag set');
+        self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_NOTHING_TO_SAVE'));
         return {};
     }
 
@@ -729,7 +731,7 @@ NfcMusic.prototype.saveTag = async function (data) {
         var action = self.buildActionFromForm(actionType, data);
 
         if (!action) {
-            self.commandRouter.pushToastMessage('error', 'NFC Music', 'Onbekend actietype: ' + actionType);
+            self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_UNKNOWN_ACTION_TYPE', { type: actionType }));
             return {};
         }
 
@@ -740,13 +742,13 @@ NfcMusic.prototype.saveTag = async function (data) {
 
         self.saveTags();
 
-        self.commandRouter.pushToastMessage('success', 'NFC Music', 'Tag ' + uid + ' opgeslagen');
+        self.commandRouter.pushToastMessage('success', 'NFC Music', self.t('TOAST_SAVED', { uid: uid }));
 
         await self.refreshUI();
 
     } catch (err) {
         self.logger.error('saveTag error: ' + err);
-        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Opslaan mislukt: ' + err.message);
+        self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_SAVE_FAILED', { error: self.errorText(err) }));
     } finally {
         self.uiBusy = false;
     }
@@ -759,7 +761,7 @@ NfcMusic.prototype.deleteCurrentTag = async function () {
     var uid = self.activeEditTag;
 
     if (!uid) {
-        self.commandRouter.pushToastMessage('error', 'NFC Music', 'Geen tag geselecteerd om te verwijderen');
+        self.commandRouter.pushToastMessage('error', 'NFC Music', self.t('TOAST_NOTHING_TO_DELETE'));
         return {};
     }
 
@@ -767,7 +769,7 @@ NfcMusic.prototype.deleteCurrentTag = async function () {
     self.saveTags();
     self.activeEditTag = null;
 
-    self.commandRouter.pushToastMessage('success', 'NFC Music', 'Tag ' + uid + ' verwijderd');
+    self.commandRouter.pushToastMessage('success', 'NFC Music', self.t('TOAST_DELETED', { uid: uid }));
 
     await self.refreshUI();
     return {};

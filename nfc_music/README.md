@@ -15,8 +15,7 @@ installing. `uninstall.sh` undoes exactly these changes, using the state recorde
 
 ## Usage
 1. Open *Settings → Plugins → NFC Music*.
-2. Hold a new tag against the reader and click **Bewerk deze tag** (edit this tag).
-   The settings page is currently in Dutch; an English translation is planned.
+2. Hold a new tag against the reader and click **Edit this tag**.
 3. Give it a name, choose what it should play and save.
 
 Supported actions:
@@ -44,6 +43,10 @@ When the plugin is **uninstalled**, Volumio removes this folder (as for every pl
 journalctl -u volumio -f | grep -i nfc     # plugin log
 pcsc_scan                                  # (package pcsc-tools) is the reader seen by pcscd?
 ```
+
+## Languages
+English (default) and Dutch. Translations live in `i18n/strings_<language>.json`; a new language only
+needs a copy of `strings_en.json` with translated values.
 
 ## License
 MIT

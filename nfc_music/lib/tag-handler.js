@@ -1,5 +1,7 @@
 'use strict';
 
+const { PluginError } = require('./errors');
+
 /*
  * Voert één actie uit een tag uit.
  * - 'play'    -> player (album, nummer, playlist; alleen lokale bibliotheek)
@@ -14,12 +16,12 @@ async function handleTagAction(action, player, logger, controls) {
 
         case 'control':
             if (!controls) {
-                throw new Error('Controls not available');
+                throw new PluginError('CONTROLS_UNAVAILABLE');
             }
             return await controls.run(action);
 
         default:
-            throw new Error(`Unknown action: ${action && action.action}`);
+            throw new PluginError('UNKNOWN_ACTION', { action: action && action.action });
     }
 }
 
@@ -48,17 +50,17 @@ async function handlePlay(action, player, logger) {
                 return await player.playPlaylist(data);
 
             default:
-                throw new Error(`Onbekend local type: ${type}`);
+                throw new PluginError('UNKNOWN_TYPE', { type });
         }
     }
 
     // Spotify wordt (nog) niet ondersteund: Volumio werkt alleen als Spotify
     // Connect-ontvanger en kan niet zelf een Spotify-uri starten.
     if (source === 'spotify') {
-        throw new Error('Spotify is not supported');
+        throw new PluginError('SPOTIFY_UNSUPPORTED');
     }
 
-    throw new Error(`Onbekende source: ${source}`);
+    throw new PluginError('UNKNOWN_SOURCE', { source });
 }
 
 module.exports = {

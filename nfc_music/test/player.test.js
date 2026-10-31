@@ -54,7 +54,7 @@ test('niet eenduidig: fout en er wordt NIETS gestart', async () => {
         { type: 'song', artist: 'Leonard Cohen', title: 'Hallelujah', uri: 'cohen' },
         { type: 'song', artist: 'Jeff Buckley', title: 'Hallelujah', uri: 'buckley' }
     ];
-    await assert.rejects(player.playTrack({ title: 'Hallelujah' }), /niet eenduidig/);
+    await assert.rejects(player.playTrack({ title: 'Hallelujah' }), /ambiguous/);
     assert.equal(calls.filter(c => c[0] === 'POST').length, 0);
 });
 

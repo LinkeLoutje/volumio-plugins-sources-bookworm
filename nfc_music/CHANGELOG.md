@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- The settings page, notifications and error messages are now translated: English by default, Dutch
+  included. Log messages are in English.
+- Local playlists are hidden in the settings page until they work reliably (existing playlist tags
+  still play).
+
 ### Fixed
 - `install.sh`/`uninstall.sh` no longer execute their state file: it is parsed as data (known keys,
   yes/no values and an allow-list of packages only) and stored root-owned in `/var/lib/nfc_music`.

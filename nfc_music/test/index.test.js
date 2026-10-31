@@ -49,7 +49,7 @@ test('scan: bedieningstag, debounce en altijd UI verversen', async () => {
     assert.deepEqual(log, [
         'control volume_up', 'refresh',
         'play album', 'refresh',
-        'error', 'toast error: Kapot: Unknown action: playSpotify', 'refresh',
+        'error', 'toast error: Kapot: Onbekende actie: playSpotify', 'refresh',
         'toast info: Nieuwe tag gescand: NEW', 'refresh'
     ]);
     assert.equal(plugin.activeTag, 'NEW');
