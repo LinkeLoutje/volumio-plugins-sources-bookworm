@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 ### Fixed
+- `install.sh`/`uninstall.sh` no longer execute their state file: it is parsed as data (known keys,
+  yes/no values and an allow-list of packages only) and stored root-owned in `/var/lib/nfc_music`.
 - After restarting the plugin, an old instance could still receive scans ("Controls not available").
   Readers and listeners are now cleaned up on stop, and a stopped plugin ignores scans.
 - The response to the UID command is now checked: status bytes must be `90 00`, an empty UID is rejected,

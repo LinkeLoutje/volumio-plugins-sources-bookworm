@@ -39,7 +39,10 @@ Write review comments in Dutch. Be concrete: name the file, the line and a fix.
 
 ### UIConfig.json pitfalls (learned the hard way)
 - `element: "text"` does not exist; use `element: "input", type: "text"`.
-- A `saveButton.data` array must list exactly the content ids of that section.
+- Every id in a `saveButton.data` array must exist as a content id in that section (an unknown id
+  sends the literal string `"data"` to the handler). Display-only fields such as `edit_tag_uid` or
+  `control_prev_info` are deliberately left out: Volumio simply omits fields that are not listed.
+- `install.sh` / `uninstall.sh` run as root: never source or eval a file that a non-root user can write.
 - A standalone `button` cannot send live field values; only a section `saveButton` can.
 - The endpoint string is `system_hardware/nfc_music` everywhere.
 
