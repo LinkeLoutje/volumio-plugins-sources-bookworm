@@ -1,6 +1,15 @@
 # Changelog
 
 ## [Unreleased]
+### Fixed
+- After restarting the plugin, an old instance could still receive scans ("Controls not available").
+  Readers and listeners are now cleaned up on stop, and a stopped plugin ignores scans.
+- The response to the UID command is now checked: status bytes must be `90 00`, an empty UID is rejected,
+  and a "wrong length" answer (`6C xx`) is retried with the requested length.
+- The plugin reconnects to PC/SC only after a real PC/SC error; without a reader it logs one warning and
+  keeps the connection open, so a reader that is plugged in later is detected immediately.
+- Removed a leftover debug log line.
+
 ### Removed
 - Spotify support (never functional): Volumio only acts as a Spotify Connect receiver and cannot start a
   Spotify URI itself. Existing Spotify tags now show a clear "Spotify is not supported" message.

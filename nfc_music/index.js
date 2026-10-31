@@ -32,6 +32,7 @@ function NfcMusic(context) {
     this.controls = null;
     this.lastScan = { uid: null, at: 0 };
     this.translator = null;
+    this.running = false;   // true tussen onStart en onStop
     this.tags = {}; // persisted
     this.activeTag = null;
     this.activeEditTag = null;
@@ -213,6 +214,7 @@ NfcMusic.prototype.onStart = function () {
     });
 
     this.controls = new Controls(this.commandRouter, this.logger);
+    this.running = true;
 
 
     // =========================================================
@@ -256,6 +258,17 @@ NfcMusic.prototype.onStart = function () {
 // =========================================================
 NfcMusic.prototype.handleScan = async function (uid) {
     const now = Date.now();
+
+    // Vangnet: een gestopte instantie (oude plugin na herstart) of een lege UID
+    // mag niets doen.
+    if (!this.running) {
+        this.logger.info(`NFC Music: scan genegeerd, plugin is gestopt: ${uid}`);
+        return;
+    }
+    if (typeof uid !== 'string' || uid.length === 0) {
+        this.logger.error('NFC Music: scan zonder UID genegeerd');
+        return;
+    }
 
     // pcsclite meldt een kaart soms twee keer kort na elkaar. De reader meldt
     // alleen de overgang naar 'aanwezig', dus een kaart die blijft liggen
@@ -313,6 +326,7 @@ NfcMusic.prototype.t = function (key, vars) {
 NfcMusic.prototype.onStop = function () {
 
     this.logger.info('NFC Music: stopping plugin');
+    this.running = false;
 
     // =====================================================
     // 1. NFC READER STOP
@@ -411,7 +425,6 @@ NfcMusic.prototype.buildLastScannedSection = function (section) {
     var self = this;
     var uid = self.activeTag;
 
-    self.logger.info('NFC Music DEBUG: buildLastScannedSection uid=[' + uid + '] type=' + typeof uid); //tmp logging
 
     if (!uid) {
         section.content.push({

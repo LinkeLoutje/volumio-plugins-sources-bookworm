@@ -30,6 +30,7 @@ function makePlugin(lang) {
     plugin.refreshUI = async () => log.push('refresh');
     plugin.controls = { run: async a => log.push('control ' + a.command) };
     plugin.player = { playAlbum: async () => log.push('play album') };
+    plugin.running = true;
     return { plugin, log };
 }
 
@@ -52,6 +53,16 @@ test('scan: bedieningstag, debounce en altijd UI verversen', async () => {
         'toast info: Nieuwe tag gescand: NEW', 'refresh'
     ]);
     assert.equal(plugin.activeTag, 'NEW');
+});
+
+test('gestopte instantie en lege UID doen niets (dubbele instantie na herstart)', async () => {
+    const { plugin, log } = makePlugin();
+    plugin.tags = { A: { name: 'Volume', actions: [{ action: 'control', command: 'toggle', data: {} }] } };
+    plugin.running = false;
+    await plugin.handleScan('A');
+    plugin.running = true;
+    await plugin.handleScan('');
+    assert.deepEqual(log, ['error']);
 });
 
 test('formulier -> tags.json -> formulier geeft dezelfde bedieningstag terug', () => {
