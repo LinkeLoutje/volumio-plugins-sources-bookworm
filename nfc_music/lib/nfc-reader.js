@@ -30,7 +30,7 @@ function hex(buffer) {
  */
 function parseUidResponse(data) {
     if (!data || data.length < 2) {
-        return { error: `antwoord te kort (${data ? hex(data) : 'leeg'})` };
+        return { error: `response too short (${data ? hex(data) : 'empty'})` };
     }
     const sw1 = data[data.length - 2];
     const sw2 = data[data.length - 1];
@@ -38,11 +38,11 @@ function parseUidResponse(data) {
         return { retryLe: sw2 };
     }
     if (sw1 !== 0x90 || sw2 !== 0x00) {
-        return { error: `statusbytes ${hex([sw1, sw2])}` };
+        return { error: `status bytes ${hex([sw1, sw2])}` };
     }
     const uid = hex(data.slice(0, -2));
     if (!uid) {
-        return { error: 'lege UID (statusbytes 9000)' };
+        return { error: 'empty UID (status bytes 9000)' };
     }
     return { uid };
 }
@@ -69,7 +69,7 @@ class NfcReader {
     }
 
     stop() {
-        this.logger.info('NFC: reader stoppen');
+        this.logger.info('NFC: stopping reader');
         this.stopped = true;
         this._clearTimers();
         this._closePcsc();
@@ -79,7 +79,7 @@ class NfcReader {
         if (this.stopped) {
             return;
         }
-        this.logger.info('NFC: PC/SC initialiseren');
+        this.logger.info('NFC: initialising PC/SC');
 
         try {
             this.pcsc = pcsclite();
@@ -108,8 +108,8 @@ class NfcReader {
         this.warnTimer = setTimeout(() => {
             this.warnTimer = null;
             if (!this.stopped && this.readers.size === 0) {
-                this.logger.warn('NFC: geen lezer gevonden. Controleer de USB-aansluiting; ' +
-                    'werkt hij niet na een herstart, steek de lezer dan opnieuw in.');
+                this.logger.warn('NFC: no reader found. Check the USB connection; ' +
+                    'if it does not work after a restart, unplug the reader and plug it in again.');
             }
         }, READER_WARN_MS);
     }
@@ -118,7 +118,7 @@ class NfcReader {
         this.readers.add(reader);
         this.retryDelay = RETRY_MIN_MS;
         this._clearWarnTimer();
-        this.logger.info(`NFC: reader gevonden: ${reader.name}`);
+        this.logger.info(`NFC: reader found: ${reader.name}`);
 
         reader.on('error', err => {
             this.logger.error(`NFC reader error: ${err.message}`);
@@ -133,16 +133,16 @@ class NfcReader {
                 return;
             }
             if ((changes & reader.SCARD_STATE_PRESENT) && (status.state & reader.SCARD_STATE_PRESENT)) {
-                this.logger.info('NFC: tag gedetecteerd');
+                this.logger.info('NFC: tag detected');
                 this._readUid(reader);
             }
             if ((changes & reader.SCARD_STATE_EMPTY) && (status.state & reader.SCARD_STATE_EMPTY)) {
-                this.logger.info('NFC: tag verwijderd');
+                this.logger.info('NFC: tag removed');
             }
         });
 
         reader.on('end', () => {
-            this.logger.info(`NFC: reader verwijderd: ${reader.name}`);
+            this.logger.info(`NFC: reader removed: ${reader.name}`);
             this.readers.delete(reader);
         });
     }
@@ -156,7 +156,7 @@ class NfcReader {
 
         const delay = this.retryDelay;
         this.retryDelay = Math.min(this.retryDelay * 2, RETRY_MAX_MS);
-        this.logger.info(`NFC: opnieuw verbinden over ${delay / 1000} s`);
+        this.logger.info(`NFC: reconnecting in ${delay / 1000} s`);
 
         this.retryTimer = setTimeout(() => {
             this.retryTimer = null;
@@ -172,7 +172,7 @@ class NfcReader {
                     reader.close();
                 }
             } catch (err) {
-                this.logger.warn(`NFC: lezer sluiten mislukt: ${err.message}`);
+                this.logger.warn(`NFC: closing reader failed: ${err.message}`);
             }
         }
         this.readers.clear();
@@ -185,7 +185,7 @@ class NfcReader {
                 pcsc.on('error', () => {});   // late fouten van de gesloten verbinding negeren
                 pcsc.close();
             } catch (err) {
-                this.logger.warn(`NFC: PC/SC sluiten mislukt: ${err.message}`);
+                this.logger.warn(`NFC: closing PC/SC failed: ${err.message}`);
             }
         }
     }
@@ -223,7 +223,7 @@ class NfcReader {
             const send = (apdu, retriesLeft) => {
                 reader.transmit(Buffer.from(apdu), 40, protocol, (err, data) => {
                     if (err) {
-                        this.logger.error(`NFC UID uitlezen mislukt: ${err.message}`);
+                        this.logger.error(`NFC: reading UID failed: ${err.message}`);
                         disconnect();
                         return;
                     }
@@ -244,8 +244,8 @@ class NfcReader {
                             });
                         }
                     } else {
-                        this.logger.error(`NFC UID uitlezen mislukt: ${result.error || 'onbekend antwoord'} ` +
-                            `(antwoord ${data ? hex(data) : 'leeg'})`);
+                        this.logger.error(`NFC: reading UID failed: ${result.error || 'unknown response'} ` +
+                            `(response ${data ? hex(data) : 'empty'})`);
                     }
                     disconnect();
                 });

@@ -1,20 +1,20 @@
 {
   "page": {
-    "label": "NFC Music"
+    "label": "TRANSLATE.PLUGIN_NFC_MUSIC_TITLE"
   },
   "sections": [
     {
       "id": "section_last_scanned",
       "element": "section",
-      "label": "Laatst gescande tag",
+      "label": "TRANSLATE.SECTION_LAST_SCANNED",
       "icon": "fa-wifi",
-      "description": "Houd een tag tegen de lezer en klik daarna hieronder op 'Bewerk deze tag'.",
+      "description": "TRANSLATE.SECTION_LAST_SCANNED_DESC",
       "content": []
     },
     {
       "id": "section_pick_existing",
       "element": "section",
-      "label": "Bestaande tag kiezen",
+      "label": "TRANSLATE.SECTION_PICK_EXISTING",
       "icon": "fa-list",
       "onSave": {
         "type": "controller",
@@ -22,7 +22,7 @@
         "method": "selectTagToEdit"
       },
       "saveButton": {
-        "label": "Bewerk",
+        "label": "TRANSLATE.BUTTON_EDIT",
         "data": [
           "existingTagUid"
         ]
@@ -32,7 +32,7 @@
     {
       "id": "section_edit_tag",
       "element": "section",
-      "label": "Tag bewerken",
+      "label": "TRANSLATE.SECTION_EDIT_TAG",
       "icon": "fa-pencil",
       "onSave": {
         "type": "controller",
@@ -40,7 +40,7 @@
         "method": "saveTag"
       },
       "saveButton": {
-        "label": "Opslaan",
+        "label": "TRANSLATE.BUTTON_SAVE",
         "data": [
           "name",
           "actionType",
@@ -50,7 +50,6 @@
           "track_album",
           "album_artist",
           "album_naam",
-          "playlist_naam",
           "volume_step_up",
           "volume_step_down",
           "volume_value"

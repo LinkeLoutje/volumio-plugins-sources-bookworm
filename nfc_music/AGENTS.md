@@ -26,8 +26,10 @@ Write review comments in Dutch. Be concrete: name the file, the line and a fix.
   or reinstall tools Volumio itself uses; it must end with `echo "plugininstallend"`.
 - `uninstall.sh` reverts what `install.sh` did and ends with `echo "pluginuninstallend"`.
 - No secrets, tokens or personal data in the repository (`config/tags.json`).
-- A change that users will receive must bump `version` in `package.json` and update
-  `volumio_info.changelog` and `CHANGELOG.md`.
+- Every user-visible change gets a line under `## [Unreleased]` in `CHANGELOG.md`.
+  The `version` in `package.json` and `volumio_info.changelog` are only bumped on the release
+  branch, right before `volumio plugin submit` (nothing is published from feature branches).
+  Do not report a missing version bump in a feature PR.
 
 ### Correctness
 - Lifecycle methods and UI handlers (`onStart`, `onStop`, `getUIConfig`, `onSave` targets)
