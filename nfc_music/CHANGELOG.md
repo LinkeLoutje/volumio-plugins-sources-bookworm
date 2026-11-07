@@ -9,6 +9,9 @@
   tag) no longer silently turns it into an album tag; saving is refused and the tag stays unchanged.
 
 ### Fixed
+- ACR122U not working when it was plugged in before the plugin started (after a reboot, or on a
+  fresh install): `install.sh` now also installs ACS's own driver `libacsccid1` (removed again on
+  uninstall if the plugin installed it).
 - `install.sh`/`uninstall.sh` no longer execute their state file: it is parsed as data (known keys,
   yes/no values and an allow-list of packages only) and stored root-owned in `/var/lib/nfc_music`.
 - After restarting the plugin, an old instance could still receive scans ("Controls not available").

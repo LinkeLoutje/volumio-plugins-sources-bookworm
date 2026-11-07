@@ -5,7 +5,10 @@
 # Owned by root, outside the plugin's (volumio-writable) folders.
 STATE_DIR="/var/lib/nfc_music"
 STATE_FILE="$STATE_DIR/install-state"
-ALLOWED_PACKAGES="pcscd libccid libpcsclite1"
+# libacsccid1: ACS's own driver for the ACR122U. With only the generic libccid the reader
+# stays unusable when it was plugged in before pcscd first talks to it (boot, or plugged
+# in before the plugin is enabled). Only used for ACS readers; other readers are unaffected.
+ALLOWED_PACKAGES="pcscd libccid libpcsclite1 libacsccid1"
 BLACKLIST_FILE="/etc/modprobe.d/nfc_music-blacklist.conf"
 
 SUDO=""
@@ -73,6 +76,8 @@ if [ -n "$MISSING" ]; then
         exit 1
     fi
     INSTALLED_BY_PLUGIN="$INSTALLED_BY_PLUGIN$MISSING"
+    # A running pcscd only loads drivers at start; restart it so a new driver is used.
+    $SUDO systemctl try-restart pcscd.service >/dev/null 2>&1 || true
 else
     echo "All required packages already installed"
 fi

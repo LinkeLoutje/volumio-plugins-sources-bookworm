@@ -5,7 +5,7 @@
 # Owned by root, outside the plugin's (volumio-writable) folders.
 STATE_DIR="/var/lib/nfc_music"
 STATE_FILE="$STATE_DIR/install-state"
-ALLOWED_PACKAGES="pcscd libccid libpcsclite1"
+ALLOWED_PACKAGES="pcscd libccid libpcsclite1 libacsccid1"
 BLACKLIST_FILE="/etc/modprobe.d/nfc_music-blacklist.conf"
 
 SUDO=""
