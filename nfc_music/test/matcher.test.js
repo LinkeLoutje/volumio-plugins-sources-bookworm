@@ -42,7 +42,7 @@ test('Cyrillische titel: juiste nummer, niet het eerste resultaat', () => {
 });
 
 test('titel die na normaliseren leeg is wordt geweigerd', () => {
-    assert.throws(() => findTrack(lists(song('X', 'Y', 'Z')), { title: '!!!' }), /Ongeldige titel/);
+    assert.throws(() => findTrack(lists(song('X', 'Y', 'Z')), { title: '!!!' }), /Invalid title/);
 });
 
 test('exacte match gaat voor gedeeltelijke ("Love" vs "Lovely Day" / "Love (Live)")', () => {
@@ -62,7 +62,7 @@ test('gedeeltelijke titel mag als die eenduidig is ("Hallelujah" -> "Hallelujah 
 
 test('"Love" matcht nooit "Lovely Day" (hele woorden)', () => {
     assert.throws(() => findTrack(lists(song('Bill Withers', 'Menagerie', 'Lovely Day')),
-        { title: 'Love' }), /niet gevonden/);
+        { title: 'Love' }), /not found/);
 });
 
 test('twee nummers met dezelfde titel van verschillende artiesten: artiest beslist', () => {
@@ -74,13 +74,13 @@ test('twee nummers met dezelfde titel van verschillende artiesten: artiest besli
 test('dezelfde titel zonder artiest: fout i.p.v. gokken', () => {
     const items = lists(song('Leonard Cohen', 'Various Positions', 'Hallelujah'),
         song('Jeff Buckley', 'Grace', 'Hallelujah'));
-    assert.throws(() => findTrack(items, { title: 'Hallelujah' }), /niet eenduidig/);
+    assert.throws(() => findTrack(items, { title: 'Hallelujah' }), /ambiguous/);
 });
 
 test('zelfde nummer op album en verzamelalbum: album beslist, anders fout', () => {
     const items = lists(song('Queen', 'A Night at the Opera', 'Bohemian Rhapsody'),
         song('Queen', 'Greatest Hits', 'Bohemian Rhapsody'));
-    assert.throws(() => findTrack(items, { artist: 'Queen', title: 'Bohemian Rhapsody' }), /niet eenduidig/);
+    assert.throws(() => findTrack(items, { artist: 'Queen', title: 'Bohemian Rhapsody' }), /ambiguous/);
     assert.equal(findTrack(items, { artist: 'Queen', title: 'Bohemian Rhapsody', album: 'greatest hits' }).album,
         'Greatest Hits');
 });
@@ -112,7 +112,7 @@ test('verkeerd album ingevuld bij een eenduidig nummer: album wordt genegeerd', 
 test('gedeeltelijke artiest en gedeeltelijke titel zijn gelijkwaardig: fout, album beslist', () => {
     const items = lists(song('Lorde Tribute Band', 'Covers', 'Royals', 'tribute'),
         song('Lorde', 'Live in Auckland', 'Royals (Live)', 'live'));
-    assert.throws(() => findTrack(items, { artist: 'Lorde', title: 'Royals' }), /niet eenduidig/);
+    assert.throws(() => findTrack(items, { artist: 'Lorde', title: 'Royals' }), /ambiguous/);
     assert.equal(findTrack(items, { artist: 'Lorde', title: 'Royals', album: 'Live in Auckland' }).uri, 'live');
 });
 
@@ -131,7 +131,7 @@ test('album: zelfde titel bij meerdere artiesten, artiest beslist', () => {
     const items = lists(folder('Weezer', 'Weezer'), folder('Peter Gabriel', 'Greatest Hits'),
         folder('Queen', 'Greatest Hits'));
     assert.equal(findAlbum(items, { artist: 'Queen', album: 'Greatest Hits' }).artist, 'Queen');
-    assert.throws(() => findAlbum(items, { album: 'Greatest Hits' }), /niet eenduidig/);
+    assert.throws(() => findAlbum(items, { album: 'Greatest Hits' }), /ambiguous/);
 });
 
 test('album met accenten', () => {
@@ -144,5 +144,5 @@ test('album zonder artiest-veld in zoekresultaten: alleen bij één kandidaat', 
     const one = lists({ type: 'folder', title: 'Grace', uri: 'a' });
     assert.equal(findAlbum(one, { artist: 'Jeff Buckley', album: 'Grace' }).uri, 'a');
     const two = lists({ type: 'folder', title: 'Grace', uri: 'a' }, { type: 'folder', title: 'Grace', uri: 'b' });
-    assert.throws(() => findAlbum(two, { artist: 'Jeff Buckley', album: 'Grace' }), /niet eenduidig/);
+    assert.throws(() => findAlbum(two, { artist: 'Jeff Buckley', album: 'Grace' }), /ambiguous/);
 });

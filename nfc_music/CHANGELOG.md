@@ -1,6 +1,13 @@
 # Changelog
 
 ## [Unreleased]
+### Changed
+- The settings page, notifications and error messages are now translated: English by default, Dutch
+  included. Log messages are in English.
+- Local playlists are no longer offered in the settings page: they do not work yet.
+- Editing a tag with an action the settings page does not support (e.g. an old playlist or Spotify
+  tag) no longer silently turns it into an album tag; saving is refused and the tag stays unchanged.
+
 ### Fixed
 - `install.sh`/`uninstall.sh` no longer execute their state file: it is parsed as data (known keys,
   yes/no values and an allow-list of packages only) and stored root-owned in `/var/lib/nfc_music`.

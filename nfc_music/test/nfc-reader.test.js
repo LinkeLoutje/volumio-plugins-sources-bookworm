@@ -63,8 +63,8 @@ test('parseUidResponse: UID, lengte-verzoek (6C xx), foutcode, leeg', () => {
     assert.deepEqual(parseUidResponse(Buffer.from('53BAFF431400019000', 'hex')), { uid: '53BAFF43140001' });
     assert.deepEqual(parseUidResponse(Buffer.from('6C07', 'hex')), { retryLe: 7 });
     assert.match(parseUidResponse(Buffer.from('6300', 'hex')).error, /6300/);
-    assert.match(parseUidResponse(Buffer.from('9000', 'hex')).error, /lege UID/);
-    assert.match(parseUidResponse(Buffer.alloc(0)).error, /te kort/);
+    assert.match(parseUidResponse(Buffer.from('9000', 'hex')).error, /empty UID/);
+    assert.match(parseUidResponse(Buffer.alloc(0)).error, /too short/);
 });
 
 test('tag lezen: UID wordt doorgegeven', () => {
@@ -95,7 +95,7 @@ test('foutantwoord of lege UID: geen scan, wel een duidelijke fout in de log', (
     connections[0].emit('reader', reader);
     reader.tagOn(); reader.tagOff(); reader.tagOn();
     assert.deepEqual(tags, []);
-    assert.equal(log.filter(l => l.startsWith('ERROR NFC UID uitlezen mislukt')).length, 2);
+    assert.equal(log.filter(l => l.startsWith('ERROR NFC: reading UID failed')).length, 2);
     nfc.stop();
 });
 
@@ -119,7 +119,7 @@ test('geen lezer: één waarschuwing, verbinding blijft open, later ingestoken l
     for (let i = 0; i < 120; i++) t.mock.timers.tick(1000);
     assert.equal(connections.length, 1, 'geen herverbinding zonder fout');
     assert.equal(connections[0].closed, false);
-    assert.equal(log.filter(l => l.startsWith('WARN NFC: geen lezer')).length, 1);
+    assert.equal(log.filter(l => l.startsWith('WARN NFC: no reader')).length, 1);
     const reader = fakeReader(['04A1B2C39000']);      // stekker erin
     connections[0].emit('reader', reader);
     reader.tagOn();
@@ -136,8 +136,8 @@ test('PC/SC-fout: opnieuw verbinden met oplopende wachttijd', (t) => {
     connections[1].emit('error', new Error('Service not available'));
     t.mock.timers.tick(10000);
     assert.equal(connections.length, 3);
-    assert.deepEqual(log.filter(l => l.startsWith('NFC: opnieuw verbinden over')),
-        ['NFC: opnieuw verbinden over 5 s', 'NFC: opnieuw verbinden over 10 s']);
+    assert.deepEqual(log.filter(l => l.startsWith('NFC: reconnecting in')),
+        ['NFC: reconnecting in 5 s', 'NFC: reconnecting in 10 s']);
     nfc.stop();
 });
 

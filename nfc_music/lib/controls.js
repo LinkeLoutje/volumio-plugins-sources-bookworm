@@ -1,5 +1,7 @@
 'use strict';
 
+const { PluginError } = require('./errors');
+
 /*
  * Bedieningstags: play/pauze, volgende, begin nummer / vorige, volume +/-
  * en een vaste volumewaarde.
@@ -66,7 +68,7 @@ class Controls {
                 return this.setVolume(toInt(data.value, DEFAULT_VOLUME));
 
             default:
-                throw new Error(`Unknown control command: ${command}`);
+                throw new PluginError('UNKNOWN_COMMAND', { command });
         }
     }
 
