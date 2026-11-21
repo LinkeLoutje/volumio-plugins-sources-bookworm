@@ -947,24 +947,19 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                     // set-volume-direct command code) + 2 hex digits + ETX. The 2 hex digits use the
                     // same dB<->hex scale as the read-back reports: dB = (hexValue-199)/2, i.e.
                     // hexValue = round(dB*2+199), clamped to the amp's actual range 0x27..0xE8.
+                    // The upper limit is the user's maxVolume setting (alsavolume clamps to
+                    // minVolume/maxVolume before calling this). Here we only keep the value inside
+                    // the range the protocol supports, so we never send an invalid command.
                     var requestedDb = parseFloat(cmd[1]);
-                    // HARD safety ceiling, independent of minVolume/maxVolume config: those are
-                    // user-editable and have repeatedly been reset to unsafe defaults by plugin
-                    // reinstalls/config-sync mismatches during development. This ceiling cannot be
-                    // bypassed by a misconfigured startupVolume or a UI mistake - it always applies.
-                    var safetyMaxDb = (self.selectedAmp.volValueSafetyMaxDb !== undefined) ? self.selectedAmp.volValueSafetyMaxDb : -20;
                     if (isNaN(requestedDb)) {
-                        // An empty/invalid config value (e.g. a blank startupVolume field) must NOT
-                        // silently fall through: NaN > safetyMaxDb is always false in JS, so a plain
-                        // "too high" check would not catch this and could send a corrupt command.
-                        self.logger.error('[SERIALAMPCONTROLLER] sendCommand: volValue received invalid/empty value "' + cmd[1] + '", falling back to safety ceiling ' + safetyMaxDb + 'dB.');
-                        requestedDb = safetyMaxDb;
-                    } else if (requestedDb > safetyMaxDb) {
-                        self.logger.warn('[SERIALAMPCONTROLLER] sendCommand: requested volValue ' + requestedDb + 'dB exceeds safety ceiling of ' + safetyMaxDb + 'dB - clamping to protect speakers.');
-                        requestedDb = safetyMaxDb;
+                        // An empty/invalid value (e.g. a blank startupVolume field) must not be sent:
+                        // it would produce a corrupt command such as "230NAN".
+                        self.logger.error('[SERIALAMPCONTROLLER] sendCommand: volValue received invalid/empty value "' + cmd[1] + '" - volume command not sent.');
+                        cmdString = '';
+                        break;
                     }
                     var hexVal = Math.round(requestedDb * 2 + 199);
-                    hexVal = Math.max(0x27, Math.min(0xE8, hexVal));
+                    hexVal = Math.max(0x27, Math.min(0xE8, hexVal)); // -80.0 dB .. +16.5 dB
                     var hexStr = hexVal.toString(16).toUpperCase().padStart(2,'0');
                     cmdString = cmdString + self.selectedAmp.commands.volValue.replace('##', hexStr);
                     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: volValue ' + requestedDb + 'dB -> hex 0x' + hexStr);
