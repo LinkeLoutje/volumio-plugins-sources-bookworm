@@ -97,7 +97,7 @@ serialampcontroller.prototype.deactivate = function () {
     // Stop everything that could still fire after the plugin is stopped or the amp type is
     // changed: pending timers (they would write to a closed port or power off the amp later)
     // and the pushState listener on the Volumio socket.
-    ['powerOffTimer', 'wakeTimer', 'powerOnSettleTimer'].forEach(timer => {
+    ['powerOffTimer', 'wakeTimer', 'powerOnSettleTimer', 'statusRetryTimer'].forEach(timer => {
         if (self[timer]) {
             clearTimeout(self[timer]);
             self[timer] = undefined;
@@ -402,7 +402,9 @@ serialampcontroller.prototype.getAmpStatus = function() {
     if (self.parser!=undefined) {
         if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] getAmpStatus: sending status requests to Amp');
         self.sendStatusRequest('reqModel');
+        self.powerStatusReceived = false;
         self.sendStatusRequest('reqPower');
+        self.retryPowerStatusRequest(2);
         self.sendStatusRequest('reqVolume');
         self.sendStatusRequest('reqMute');
         self.sendStatusRequest('reqSource');
@@ -410,6 +412,24 @@ serialampcontroller.prototype.getAmpStatus = function() {
         if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] getAmpStatus: listener not yet available');
     }
     return libQ.resolve();
+}
+
+// The answer to the power status request can get lost or arrive damaged, e.g. right after the
+// port was opened (seen on a Yamaha: the first character of its configuration report was missing,
+// so the checksum failed and the plugin kept assuming standby while the amp was on). Ask again
+// a few times if no power status has arrived yet.
+serialampcontroller.prototype.retryPowerStatusRequest = function (retriesLeft) {
+    var self = this;
+    if (self.selectedAmp === undefined || self.selectedAmp.statusRequests === undefined ||
+        !self.selectedAmp.statusRequests.reqPower || retriesLeft <= 0) return;
+    if (self.statusRetryTimer) clearTimeout(self.statusRetryTimer);
+    self.statusRetryTimer = setTimeout(() => {
+        self.statusRetryTimer = undefined;
+        if (self.powerStatusReceived) return;
+        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] retryPowerStatusRequest: no valid power status received yet, asking again (' + retriesLeft + ' left)');
+        self.sendStatusRequest('reqPower');
+        self.retryPowerStatusRequest(retriesLeft - 1);
+    }, 3000);
 }
 
 serialampcontroller.prototype.setActiveAmp = function() {
@@ -1081,6 +1101,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
     switch (response) {
         case "respPowerOn":
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled PowerOn. Previous state is: ' + self.ampStatus.power);
+            self.powerStatusReceived = true;
             if (self.ampStatus.Powering == 'up') self.ampStatus.Powering = '';
             if (self.powerupAtVolumioStart) {self.powerupAtVolumioStart = false};   
             if (self.powerOnSettleTimer) clearTimeout(self.powerOnSettleTimer);
@@ -1098,7 +1119,8 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             }, 10000);
             break;
         case "respPowerOff":
-            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled PowerOff');            
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled PowerOff');
+            self.powerStatusReceived = true;            
             if (self.ampStatus.Powering == 'down') self.ampStatus.Powering = '';
             self.socket.emit('pause'); //stops volumio if amp is powered down
             self.messageReceived.emit('power', 'standby');
@@ -1203,6 +1225,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                 if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: ignoring invalid Yamaha configuration report (length or checksum mismatch): ' + self.toPrintable(body));
                 break;
             }
+            self.powerStatusReceived = true;
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Yamaha configuration report, model ' + body.substr(0, 5) + ', ' + dataLen + ' data characters: ' + self.toPrintable(configData));
             if (dataLen <= 9) {
                 // Status only update: no pause/play side effects like respPowerOff has.
