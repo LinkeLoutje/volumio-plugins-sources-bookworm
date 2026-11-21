@@ -879,7 +879,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                             });
                             if (self.selectedAmp.noStatusFeedback === true) {
                                 self.ampStatus.power = 'on';
-                                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                                self.getVolumeObject(); // also sends the result to volumioupdatevolume
                                 self.messageReceived.emit('volume', self.ampStatus.volume);
                                 self.messageReceived.emit('mute', self.ampStatus.mute);
                             }
@@ -901,7 +901,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                     // for a response that will never arrive. Only amps with this explicit flag are
                     // affected; all other (properly acknowledging) amps keep the response-driven flow.
                     self.ampStatus.power = 'on';
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                     self.messageReceived.emit('mute', self.ampStatus.mute);
                 }
@@ -913,7 +913,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 self.ampStatus.Powering = 'down';
                 if (self.selectedAmp.noStatusFeedback === true) {
                     self.ampStatus.power = 'standby';
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                 }
                 break;
             case  "powerToggle": 
@@ -928,7 +928,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 cmdString = cmdString + self.selectedAmp.commands.volUp;
                 if (self.selectedAmp.noStatusFeedback === true) {
                     self.ampStatus.volume = Math.min(parseFloat(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                 }
                 break;
@@ -936,7 +936,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 cmdString = cmdString + self.selectedAmp.commands.volDown;
                 if (self.selectedAmp.noStatusFeedback === true) {
                     self.ampStatus.volume = Math.max(parseFloat(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                 }
                 break;
@@ -983,7 +983,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 if (self.selectedAmp.noStatusFeedback === true) {
                     if (self.config.get('pauseWhenMuted')) self.socket.emit('pause');
                     self.ampStatus.mute = true;
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('mute', true);
                 }
                 break;
@@ -992,7 +992,7 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                 if (self.selectedAmp.noStatusFeedback === true) {
                     if (self.config.get('pauseWhenMuted')) self.socket.emit('play');
                     self.ampStatus.mute = false;
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('mute', false);
                 }
                 break;
@@ -1059,7 +1059,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                 self.socket.emit('play');
             }
             self.ampStatus.mute = false;
-            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.getVolumeObject(); // also sends the result to volumioupdatevolume
             self.messageReceived.emit('mute', false);
             break;
         case "respMuteOn":
@@ -1068,13 +1068,13 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                 self.socket.emit('pause');
             }
             self.ampStatus.mute = true;
-            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.getVolumeObject(); // also sends the result to volumioupdatevolume
             self.messageReceived.emit('mute', true);
             break;
         case 'respVolume':
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled volume is ' + args[0]);
             self.ampStatus.volume = parseInt(args[0]);
-            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.getVolumeObject(); // also sends the result to volumioupdatevolume
             self.messageReceived.emit('volume', args[0]);
             break;
         case 'respVolumeHexDb':
@@ -1088,14 +1088,14 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             if (hexVal === 0) {
                 if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp reports MUTE via volume status (0x00)');
                 self.ampStatus.mute = true;
-                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                self.getVolumeObject(); // also sends the result to volumioupdatevolume
                 self.messageReceived.emit('mute', true);
             } else {
                 var realDb = (hexVal - 199) / 2;
                 if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp reports real volume: ' + realDb + ' dB (raw 0x' + args[0] + ')');
                 self.ampStatus.mute = false;
                 self.ampStatus.volume = realDb;
-                self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                self.getVolumeObject(); // also sends the result to volumioupdatevolume
                 self.messageReceived.emit('volume', realDb);
             }
             break;
@@ -1105,14 +1105,14 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             // We track the volume locally by incrementing it with the configured step size.
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepUp');
             self.ampStatus.volume = Math.min(parseFloat(self.ampStatus.volume) + self.config.get('volumeSteps'), self.config.get('maxVolume'));
-            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.getVolumeObject(); // also sends the result to volumioupdatevolume
             self.messageReceived.emit('volume', self.ampStatus.volume);
             break;
         case 'respVolumeStepDown':
             // see respVolumeStepUp above
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp acknowledged VolumeStepDown');
             self.ampStatus.volume = Math.max(parseFloat(self.ampStatus.volume) - self.config.get('volumeSteps'), self.config.get('minVolume'));
-            self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+            self.getVolumeObject(); // also sends the result to volumioupdatevolume
             self.messageReceived.emit('volume', self.ampStatus.volume);
             break;
         case 'respSource':
@@ -1167,7 +1167,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                 if (!isNaN(volHex) && volHex >= 0x27 && volHex <= 0xE8) {
                     self.ampStatus.volume = (volHex - 199) / 2;
                     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: configuration report volume: ' + self.ampStatus.volume + ' dB (raw 0x' + configData.substr(15, 2) + ')');
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     self.messageReceived.emit('volume', self.ampStatus.volume);
                 }
             }
@@ -1463,7 +1463,7 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger, isRawValue) 
                         // report that may arrive late or not at all - this is what was causing the
                         // Volumio slider to snap back to a stale position after a manual change.
                         self.ampStatus.volume = VolumeInteger;
-                        self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                        self.getVolumeObject(); // also sends the result to volumioupdatevolume
                         self.messageReceived.emit('volume', VolumeInteger);
                     }
                 } else {
@@ -1473,7 +1473,7 @@ serialampcontroller.prototype.alsavolume = function (VolumeInteger, isRawValue) 
                     // without sending anything, to avoid hanging on a response that will never come.
                     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] alsavolume: amp has no volValue command, cannot set absolute volume. Keeping locally tracked value.');
                     self.ampStatus.volume = Math.round(VolumeInteger);
-                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.getVolumeObject(); // also sends the result to volumioupdatevolume
                     defer.resolve(self.getVolumeObject());
                 }
                 break;   
@@ -1570,7 +1570,7 @@ serialampcontroller.prototype.getVolumeObject = function() {
 
 serialampcontroller.prototype.volumioupdatevolume = function() {
     var self = this;
-    return self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+    return self.getVolumeObject(); // also sends the result to volumioupdatevolume
 };
 
 serialampcontroller.prototype.retrievevolume = function () {
