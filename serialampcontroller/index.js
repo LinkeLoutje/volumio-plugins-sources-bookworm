@@ -274,7 +274,9 @@ serialampcontroller.prototype.activateSocketIO = function () {
     self.socket = io.connect('http://localhost:3000');
 	self.socket.emit('getState');
 	self.socket.on('pushState',function(data){
-        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: ' + JSON.stringify(self.volumioStatus) + ' - ' + data.status);
+        // Log only the fields this plugin uses: the full state (title, album art URL, ...) on every
+        // pushState filled the journal so fast that older lines were gone within minutes.
+        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: ' + (self.volumioStatus !== undefined ? self.volumioStatus.status : 'undefined') + ' -> ' + data.status + ', volume ' + data.volume + (data.mute ? ' (muted)' : ''));
         if ((self.volumioStatus == undefined || self.volumioStatus.status == 'stop' || self.volumioStatus.status == 'pause' ) && data.status=='play') {
             //status changed to play
             if (self.ampStatus.power == 'standby') {
