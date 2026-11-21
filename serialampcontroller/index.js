@@ -336,10 +336,11 @@ serialampcontroller.prototype.getCurrentVolumioStatus = function () {
     return (self.volumioStatus !== undefined) ? self.volumioStatus.status : undefined;
 }
 
-// Formats a command string for the log as hex, because raw control characters (STX/ETX/DC1)
-// make journald hide the whole line as "[blob data]".
-serialampcontroller.prototype.toHex = function (str) {
-    return Buffer.from(String(str), 'binary').toString('hex');
+// Formats a command string for the log: printable characters stay as they are, control and
+// non-ASCII bytes are shown as \xNN (e.g. "\x0207A1D\x03"). Raw control characters (STX/ETX/DC1)
+// would make journald hide the whole line as "[blob data]".
+serialampcontroller.prototype.toPrintable = function (str) {
+    return String(str).replace(/[\x00-\x1F\x7F-\xFF]/g, c => '\\x' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0'));
 }
 
 serialampcontroller.prototype.getAmpStatus = function() {
@@ -867,12 +868,12 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                         // and given time to take effect before the normal powerOn code is accepted.
                         // This only runs for amps that define this field; all other amps are unaffected.
                         self.ampStatus.Powering = 'up';
-                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: sending wake-up sequence before powerOn (hex): ' + self.toHex(self.selectedAmp.wakePowerOnSequence));
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: sending wake-up sequence before powerOn: ' + self.toPrintable(self.selectedAmp.wakePowerOnSequence));
                         self.port.write(self.selectedAmp.wakePowerOnSequence,'ascii',function(err) {
                             if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send wake-up sequence: ' + err);
                         });
                         setTimeout(() => {
-                            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay (hex): ' + self.toHex(self.selectedAmp.commands.powerOn));
+                            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay: ' + self.toPrintable(self.selectedAmp.commands.powerOn));
                             self.port.write(self.selectedAmp.commands.powerOn,'ascii',function(err) {
                                 if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + self.selectedAmp.commands.powerOn + '": ' + err);
                             });
@@ -1011,13 +1012,13 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
         }
     }
     if (self.port !== undefined && cmdString!==''){
-        if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: now sending " + cmd[0] + " (hex): " + self.toHex(cmdString));
+        if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: now sending " + cmd[0] + ": " + self.toPrintable(cmdString));
         self.port.write(cmdString,'ascii',function(err) {
             if (err) {
-                self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface (hex) ' + self.toHex(cmdString) + ': ' + err)
+                self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface ' + self.toPrintable(cmdString) + ': ' + err)
                 defer.reject()
             }
-            if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: sent " + cmd[0] + " (hex): " + self.toHex(cmdString));
+            if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: sent " + cmd[0] + ": " + self.toPrintable(cmdString));
             defer.resolve();
         });
     }
@@ -1276,7 +1277,7 @@ serialampcontroller.prototype.sendStatusRequest = function(messageType) {
             if (err) {
                 self.logger.error('[SERIALAMPCONTROLLER] sendStatusRequest: Failed to send: "' + cmdString + '" ' + err);
             }
-            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendStatusRequest: Sent command for "' + messageType + '" (hex): ' + self.toHex(cmdString));
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendStatusRequest: Sent command for "' + messageType + '": ' + self.toPrintable(cmdString));
         });
     }
 }
