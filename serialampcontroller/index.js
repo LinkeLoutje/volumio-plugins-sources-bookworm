@@ -338,7 +338,11 @@ serialampcontroller.prototype.activateSocketIO = function () {
                     // playing), so self.volumioStatus can still say 'stop' while music is playing.
                     // Ask the state machine for the actual current state instead.
                     var currentStatus = self.getCurrentVolumioStatus();
-                    if (currentStatus !== 'play' && self.ampStatus.power == 'on') {
+                    if (!self.ampIsOnVolumioInput()) {
+                        // The amp was switched to another source (e.g. tuner or CD-R): someone is
+                        // listening to something else, so Volumio being paused is not "idle".
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but amp is on source ' + self.ampStatus.source + ' instead of the Volumio input - not powering off');
+                    } else if (currentStatus !== 'play' && self.ampStatus.power == 'on') {
                         if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached (Volumio status: ' + currentStatus + '), powering off amp');
                         self.sendCommand('powerOff');
                     } else if (self.debugLogging) {
@@ -371,6 +375,17 @@ serialampcontroller.prototype.getCurrentVolumioStatus = function () {
         self.logger.error('[SERIALAMPCONTROLLER] getCurrentVolumioStatus: could not get Volumio state: ' + err);
     }
     return (self.volumioStatus !== undefined) ? self.volumioStatus.status : undefined;
+}
+
+// True if the amp is on the input Volumio is connected to, or if that cannot be determined
+// (amp does not report its input, or no Volumio input configured): then the old behaviour applies.
+serialampcontroller.prototype.ampIsOnVolumioInput = function () {
+    var self = this;
+    if (self.ampStatus.source === undefined || self.selectedAmp === undefined ||
+        self.selectedAmp.sources === undefined || self.selectedAmp.sourceRespPostfix === undefined) return true;
+    var idx = self.selectedAmp.sources.indexOf(self.config.get('volumioInput'));
+    if (idx < 0 || self.selectedAmp.sourceRespPostfix[idx] === undefined) return true;
+    return (String(self.selectedAmp.sourceRespPostfix[idx]).toUpperCase() == String(self.ampStatus.source).toUpperCase());
 }
 
 // Formats a command string for the log: printable characters stay as they are, control and
