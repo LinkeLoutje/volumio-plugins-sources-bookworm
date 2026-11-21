@@ -388,6 +388,7 @@
                     "muteOff": "\u000207ea3\u0003",
                     "volValue": "\u0002230##\u0003"
                 },
+            "defaults": {"minVolume": -80, "maxVolume": -30, "startupVolume": -50, "volumeSteps": 0.5, "mapTo100": true},
             "volValueIsYamahaHexDb": true,
             "wakePowerOnSequence": "\u0011000\u0003",
             "wakePowerOnDelay": 2000,

@@ -202,9 +202,11 @@ serialampcontroller.prototype.updateAmpType = function (data) {
     var defer = libQ.defer();
     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] updateAmpType: Saving Amplifier Settings:' + JSON.stringify(data));
     self.deactivate();
+    var previousAmpType = self.config.get('ampType');
     self.config.set('ampType', data['amp_type'].label);
     self.config.set('volumioInput', "...");
     self.setActiveAmp();
+    if (data['amp_type'].label !== previousAmpType) self.applyAmpDefaults();
     return self.commandRouter.getUIConfigOnPlugin('system_hardware', 'serialampcontroller', {})
     .then(config => {self.commandRouter.broadcastMessage('pushUiConfig', config)})
     //configure the serial interface and open it
@@ -217,6 +219,33 @@ serialampcontroller.prototype.updateAmpType = function (data) {
     })  
     // return defer.promise;
 };
+
+// When the user selects a different amp type, the volume settings of the previous amp would
+// otherwise stay in place. They can be dangerous on another scale: maxVolume 35 is a normal
+// setting on a 0-96 Rotel scale, but means +35 dB on a Yamaha with a dB scale (and the Yamaha's
+// negative dB values are invalid on a Rotel). So on a change of amp type the volume settings are
+// reset: to the amp's own "defaults" from ampCommands.json where given, otherwise to the values
+// of a fresh installation (the config.json template shipped with the plugin).
+serialampcontroller.prototype.applyAmpDefaults = function () {
+    var self = this;
+    var keys = ['minVolume', 'maxVolume', 'startupVolume', 'volumeSteps', 'mapTo100'];
+    var template = {};
+    try {
+        template = fs.readJsonSync(__dirname + '/config.json');
+    } catch (err) {
+        self.logger.error('[SERIALAMPCONTROLLER] applyAmpDefaults: could not read config.json template: ' + err);
+    }
+    var ampDefaults = (self.selectedAmp !== undefined && self.selectedAmp.defaults !== undefined) ? self.selectedAmp.defaults : {};
+    var applied = {};
+    keys.forEach(key => {
+        var value = (ampDefaults[key] !== undefined) ? ampDefaults[key] : (template[key] !== undefined ? template[key].value : undefined);
+        if (value !== undefined) {
+            self.config.set(key, value);
+            applied[key] = value;
+        }
+    });
+    self.logger.info('[SERIALAMPCONTROLLER] applyAmpDefaults: amp type changed to ' + self.config.get('ampType') + ', volume settings reset to: ' + JSON.stringify(applied));
+}
 
 //Gets called when user changes and saves AmpSettings
 serialampcontroller.prototype.updateAmpSettings = function (data) {
