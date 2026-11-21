@@ -94,16 +94,22 @@ serialampcontroller.prototype.activate = function () {
 
 serialampcontroller.prototype.deactivate = function () {
     var self = this;
-    var defer = libQ.defer();
+    // Stop everything that could still fire after the plugin is stopped or the amp type is
+    // changed: pending timers (they would write to a closed port or power off the amp later)
+    // and the pushState listener on the Volumio socket.
+    ['powerOffTimer', 'wakeTimer', 'powerOnSettleTimer'].forEach(timer => {
+        if (self[timer]) {
+            clearTimeout(self[timer]);
+            self[timer] = undefined;
+        }
+    });
     self.closePort();
-    if (self.socket !== undefined) self.socket.disconnect();
+    if (self.socket !== undefined) {
+        self.socket.removeAllListeners();
+        self.socket.disconnect();
+    }
     self.resetVolumeSettings()
-    //Check if selected interface is physically available
-    //check if selected amp supports selected interface
-    //Activate Websock listener to react on messages from volumio
-    //Open selected interface
-    //Activate Parser
-    //Activate events
+    return libQ.resolve();
 }
 
 // Load Amp Definition file and initialize the list of Vendor/Amp for settings
@@ -903,7 +909,9 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                         self.port.write(self.selectedAmp.wakePowerOnSequence,'ascii',function(err) {
                             if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send wake-up sequence: ' + err);
                         });
-                        setTimeout(() => {
+                        if (self.wakeTimer) clearTimeout(self.wakeTimer);
+                        self.wakeTimer = setTimeout(() => {
+                            self.wakeTimer = undefined;
                             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay: ' + self.toPrintable(self.selectedAmp.commands.powerOn));
                             self.port.write(self.selectedAmp.commands.powerOn,'ascii',function(err) {
                                 if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + self.selectedAmp.commands.powerOn + '": ' + err);
@@ -1060,7 +1068,9 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp signaled PowerOn. Previous state is: ' + self.ampStatus.power);
             if (self.ampStatus.Powering == 'up') self.ampStatus.Powering = '';
             if (self.powerupAtVolumioStart) {self.powerupAtVolumioStart = false};   
-            setTimeout(() => {
+            if (self.powerOnSettleTimer) clearTimeout(self.powerOnSettleTimer);
+            self.powerOnSettleTimer = setTimeout(() => {
+                self.powerOnSettleTimer = undefined;
                 self.initVolumeSettings()
                 .then(_ => {
                     if (self.config.get('startAtPowerup')) {
