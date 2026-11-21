@@ -1128,6 +1128,50 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             self.ampStatus.source = args[0];         
             self.messageReceived.emit('source', args[0]);
             break;
+        case 'respYamahaConfig':
+            // Yamaha configuration report: the answer to the Ready command (DC1 "000" ETX, sent as
+            // reqPower at startup and as the wake-up sequence), also sent by the amp itself after
+            // a power change. Format after the DC2 (0x12) start byte:
+            //   model (5) + version (1) + data length (2 hex) + data (length) + checksum (2 hex)
+            // Checksum = sum of the character codes from model up to and including data, mod 256.
+            // Verified on an RX-V1500 (model "R0177"): in standby the data is 9 characters long,
+            // when the amp is on it is 138 characters, with the main zone volume at position 15-16
+            // (same hex scale as the volume reports).
+            var body = (args[0] !== undefined) ? args[0] : '';
+            var dataLen = parseInt(body.substr(6, 2), 16);
+            var configData = isNaN(dataLen) ? '' : body.substr(8, dataLen);
+            var checksum = isNaN(dataLen) ? NaN : parseInt(body.substr(8 + dataLen, 2), 16);
+            var sum = 0;
+            for (var i = 0; i < 8 + (isNaN(dataLen) ? 0 : dataLen) && i < body.length; i++) sum += body.charCodeAt(i);
+            if (isNaN(dataLen) || configData.length !== dataLen || isNaN(checksum) || (sum & 0xFF) !== checksum) {
+                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: ignoring invalid Yamaha configuration report (length or checksum mismatch): ' + self.toPrintable(body));
+                break;
+            }
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Yamaha configuration report, model ' + body.substr(0, 5) + ', ' + dataLen + ' data characters: ' + self.toPrintable(configData));
+            if (dataLen <= 9) {
+                // Status only update: no pause/play side effects like respPowerOff has.
+                if (self.ampStatus.Powering == 'down') self.ampStatus.Powering = '';
+                if (self.ampStatus.power !== 'standby') {
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: configuration report says amp is in standby');
+                    self.ampStatus.power = 'standby';
+                    self.messageReceived.emit('power', 'standby');
+                }
+            } else {
+                if (self.ampStatus.Powering == 'up') self.ampStatus.Powering = '';
+                if (self.ampStatus.power !== 'on') {
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: configuration report says amp is on');
+                    self.ampStatus.power = 'on';
+                    self.messageReceived.emit('power', 'on');
+                }
+                var volHex = parseInt(configData.substr(15, 2), 16);
+                if (!isNaN(volHex) && volHex >= 0x27 && volHex <= 0xE8) {
+                    self.ampStatus.volume = (volHex - 199) / 2;
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: configuration report volume: ' + self.ampStatus.volume + ' dB (raw 0x' + configData.substr(15, 2) + ')');
+                    self.commandRouter.volumioupdatevolume(self.getVolumeObject());
+                    self.messageReceived.emit('volume', self.ampStatus.volume);
+                }
+            }
+            break;
         default:
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: unhandled response "' + response +'"');
             break;
