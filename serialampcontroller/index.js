@@ -296,9 +296,16 @@ serialampcontroller.prototype.activateSocketIO = function () {
                 if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback stopped/paused, scheduling power-off in ' + self.config.get('powerOffDelay') + ' minute(s)');
                 self.powerOffTimer = setTimeout(() => {
                     self.powerOffTimer = undefined;
-                    if (self.volumioStatus !== undefined && self.volumioStatus.status !== 'play' && self.ampStatus.power == 'on') {
-                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: idle timeout reached, powering off amp');
+                    // Do not rely on the last received pushState: Volumio does not always push the
+                    // final 'play' after a quick stop/play sequence (e.g. replacing the queue while
+                    // playing), so self.volumioStatus can still say 'stop' while music is playing.
+                    // Ask the state machine for the actual current state instead.
+                    var currentStatus = self.getCurrentVolumioStatus();
+                    if (currentStatus !== 'play' && self.ampStatus.power == 'on') {
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached (Volumio status: ' + currentStatus + '), powering off amp');
                         self.sendCommand('powerOff');
+                    } else if (self.debugLogging) {
+                        self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but Volumio status is ' + currentStatus + ' and amp power is ' + self.ampStatus.power + ' - not powering off');
                     }
                 }, delayMs);
             }
@@ -314,6 +321,25 @@ serialampcontroller.prototype.activateSocketIO = function () {
         // detection used for powerOffOnStop above).
         self.volumioStatus = data;
 	})
+}
+
+// Returns the actual current playback status ('play', 'pause', 'stop') from Volumio's state
+// machine. Falls back to the last pushState if the state machine cannot be queried.
+serialampcontroller.prototype.getCurrentVolumioStatus = function () {
+    var self = this;
+    try {
+        var state = self.commandRouter.volumioGetState();
+        if (state && state.status !== undefined) return state.status;
+    } catch (err) {
+        self.logger.error('[SERIALAMPCONTROLLER] getCurrentVolumioStatus: could not get Volumio state: ' + err);
+    }
+    return (self.volumioStatus !== undefined) ? self.volumioStatus.status : undefined;
+}
+
+// Formats a command string for the log as hex, because raw control characters (STX/ETX/DC1)
+// make journald hide the whole line as "[blob data]".
+serialampcontroller.prototype.toHex = function (str) {
+    return Buffer.from(String(str), 'binary').toString('hex');
 }
 
 serialampcontroller.prototype.getAmpStatus = function() {
@@ -841,12 +867,12 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
                         // and given time to take effect before the normal powerOn code is accepted.
                         // This only runs for amps that define this field; all other amps are unaffected.
                         self.ampStatus.Powering = 'up';
-                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: sending wake-up sequence before powerOn');
+                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: sending wake-up sequence before powerOn (hex): ' + self.toHex(self.selectedAmp.wakePowerOnSequence));
                         self.port.write(self.selectedAmp.wakePowerOnSequence,'ascii',function(err) {
                             if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send wake-up sequence: ' + err);
                         });
                         setTimeout(() => {
-                            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay');
+                            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendCommand: now sending powerOn after wake-up delay (hex): ' + self.toHex(self.selectedAmp.commands.powerOn));
                             self.port.write(self.selectedAmp.commands.powerOn,'ascii',function(err) {
                                 if (err) self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + self.selectedAmp.commands.powerOn + '": ' + err);
                             });
@@ -985,13 +1011,13 @@ serialampcontroller.prototype.sendCommand  = function(...cmd) {
         }
     }
     if (self.port !== undefined && cmdString!==''){
-        if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: now sending cmdString: " + cmdString);
+        if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: now sending " + cmd[0] + " (hex): " + self.toHex(cmdString));
         self.port.write(cmdString,'ascii',function(err) {
             if (err) {
-                self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface "' + cmdString + '": ' + err)
+                self.logger.error('[SERIALAMPCONTROLLER] sendCommand: Could not send command to serial interface (hex) ' + self.toHex(cmdString) + ': ' + err)
                 defer.reject()
             }
-            if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: sent cmdString: " + cmdString);
+            if (self.debugLogging) self.logger.info("[SERIALAMPCONTROLLER] sendCommand: sent " + cmd[0] + " (hex): " + self.toHex(cmdString));
             defer.resolve();
         });
     }
@@ -1250,7 +1276,7 @@ serialampcontroller.prototype.sendStatusRequest = function(messageType) {
             if (err) {
                 self.logger.error('[SERIALAMPCONTROLLER] sendStatusRequest: Failed to send: "' + cmdString + '" ' + err);
             }
-            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendStatusRequest: Sent command for "' + messageType + '": ' + cmdString);
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] sendStatusRequest: Sent command for "' + messageType + '" (hex): ' + self.toHex(cmdString));
         });
     }
 }
