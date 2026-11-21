@@ -377,7 +377,7 @@
             "xany": false,
             "sources": ["Phono","CD","Tuner","CD-R","MD/Tape","DVD","DTV","CBL/SAT","VCR1","DVR/VCR2","V-AUX"],
             "sourceCmd": ["\u000207a14\u0003","\u000207a15\u0003","\u000207a16\u0003","\u000207a19\u0003","\u000207a18\u0003","\u000207ac1\u0003","\u000207a54\u0003","\u000207ac0\u0003","\u000207a0f\u0003","\u000207a13\u0003","\u000207a55\u0003"],
-            "sourceRespPostfix": ["07a14","07a15","07a16","07a19","07a18","07ac1","07a54","07ac0","07a0f","07a13","07a55"],
+            "sourceRespPostfix": ["00","01","02","03","04","05","06","07","09","0A","0C"],
             "delimiter": "\u0003",
             "commands": {
                     "powerOn": "\u000207a1d\u0003",
@@ -402,17 +402,7 @@
                 {"rx": "^\\u000207a1b$", "cmd": ["respVolumeStepDown"]},
                 {"rx": "^\\u0002[0-9]026([0-9A-F]{2})$", "cmd": ["respVolumeHexDb"]},
                 {"rx": "^\\u0012(.*)$", "cmd": ["respYamahaConfig"]},
-                {"rx": "^\\u0002(07a14)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a15)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a16)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a19)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a18)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07ac1)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a54)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07ac0)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a0f)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a13)$", "cmd": ["respSource"]},
-                {"rx": "^\\u0002(07a55)$", "cmd": ["respSource"]}
+                {"rx": "^\\u0002[0-9]021([0-9A-F]{2})$", "cmd": ["respSource"]}
             ],
             "statusRequests": {
                     "reqPower":"\u0011000\u0003",
