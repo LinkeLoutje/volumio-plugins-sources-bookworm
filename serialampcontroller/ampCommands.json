@@ -396,8 +396,8 @@
             "responses": [
                 {"rx": "^\\u0002[0-9]02001$", "cmd": ["respPowerOn"]},
                 {"rx": "^\\u0002[0-9]02000$", "cmd": ["respPowerOff"]},
-                {"rx": "^\\u000207ea2$", "cmd": ["respMuteOn"]},
-                {"rx": "^\\u000207ea3$", "cmd": ["respMuteOff"]},
+                {"rx": "^\\u0002[0-9]02301$", "cmd": ["respMuteOn"]},
+                {"rx": "^\\u0002[0-9]02300$", "cmd": ["respMuteOff"]},
                 {"rx": "^\\u000207a1a$", "cmd": ["respVolumeStepUp"]},
                 {"rx": "^\\u000207a1b$", "cmd": ["respVolumeStepDown"]},
                 {"rx": "^\\u0002[0-9]026([0-9A-F]{2})$", "cmd": ["respVolumeHexDb"]},
