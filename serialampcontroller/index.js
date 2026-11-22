@@ -325,46 +325,61 @@ serialampcontroller.prototype.activateSocketIO = function () {
                 self.sendCommand('source',self.config.get('volumioInput'));
             }
         }
-        if ((self.volumioStatus !== undefined && self.volumioStatus.status == 'play') && (data.status == 'stop' || data.status == 'pause')) {
-            //status changed from play to stop/pause: (re)start the power-off-when-idle timer.
-            //Also while the plugin is still powering the amp up for this playback: with the wake-up
-            //delay, power is only 'on' about 2 s after play, so a pause within those seconds would
-            //otherwise leave the amp on for good. The timer itself checks again that the amp is on.
-            if (self.config.get('powerOffOnStop') && (self.ampStatus.power == 'on' || self.ampStatus.Powering == 'up')) {
-                if (self.powerOffTimer) clearTimeout(self.powerOffTimer);
-                var delayMs = self.config.get('powerOffDelay') * 60000;
-                if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback stopped/paused, scheduling power-off in ' + self.config.get('powerOffDelay') + ' minute(s)');
-                self.powerOffTimer = setTimeout(() => {
-                    self.powerOffTimer = undefined;
-                    // Do not rely on the last received pushState: Volumio does not always push the
-                    // final 'play' after a quick stop/play sequence (e.g. replacing the queue while
-                    // playing), so self.volumioStatus can still say 'stop' while music is playing.
-                    // Ask the state machine for the actual current state instead.
-                    var currentStatus = self.getCurrentVolumioStatus();
-                    if (!self.ampIsOnVolumioInput()) {
-                        // The amp was switched to another source (e.g. tuner or CD-R): someone is
-                        // listening to something else, so Volumio being paused is not "idle".
-                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but amp is on source ' + self.ampStatus.source + ' instead of the Volumio input - not powering off');
-                    } else if (currentStatus !== 'play' && self.ampStatus.power == 'on') {
-                        if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached (Volumio status: ' + currentStatus + '), powering off amp');
-                        self.sendCommand('powerOff');
-                    } else if (self.debugLogging) {
-                        self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but Volumio status is ' + currentStatus + ' and amp power is ' + self.ampStatus.power + ' - not powering off');
-                    }
-                }, delayMs);
-            }
-        }
-        if (data.status == 'play' && self.powerOffTimer) {
-            //playback (re)started before the timer fired: cancel the pending power-off
-            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback resumed, cancelling scheduled power-off');
-            clearTimeout(self.powerOffTimer);
-            self.powerOffTimer = undefined;
-        }
+        var stoppedNow = (self.volumioStatus !== undefined && self.volumioStatus.status == 'play') && (data.status == 'stop' || data.status == 'pause');
+        self.evaluateIdlePowerOff(stoppedNow ? 'stopped' : 'volumio state', data.status);
         // Always track the last known status (previously this only updated if already defined,
         // which meant it was permanently stuck at 'undefined' and broke play->stop/pause transition
         // detection used for powerOffOnStop above).
         self.volumioStatus = data;
 	})
+}
+
+// Power off when idle. Rule: amp on + amp on the Volumio input + Volumio not playing -> power off
+// after powerOffDelay minutes, no matter who switched the amp on. Called on every event that can
+// change one of these: pushState, power reports, configuration report, input report.
+// - If the amp's input is not known (amps without input report), the timer only starts on a
+//   play -> stop/pause transition, as before; with a known input it also starts when the amp is
+//   switched on or back to the Volumio input while Volumio is idle.
+// - Powering == 'up' counts as on: with the wake-up delay power is only 'on' about 2 s after play.
+// - A running timer is kept (not restarted) on repeated events; it is cancelled as soon as the
+//   rule is no longer true. The timer checks the rule once more before powering off.
+serialampcontroller.prototype.evaluateIdlePowerOff = function (trigger, status) {
+    var self = this;
+    if (!self.config.get('powerOffOnStop')) return;
+    if (status === undefined) status = self.getCurrentVolumioStatus();
+    var ampOn = (self.ampStatus.power == 'on' || self.ampStatus.Powering == 'up');
+    var onVolumioInput = self.ampIsOnVolumioInput();
+    if (status == 'play' || !ampOn || !onVolumioInput) {
+        if (self.powerOffTimer) {
+            var reason = (status == 'play') ? 'Volumio is playing' : (!ampOn ? 'amp is off' : 'amp is on source ' + self.ampStatus.source);
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] evaluateIdlePowerOff (' + trigger + '): ' + reason + ', cancelling scheduled power-off');
+            clearTimeout(self.powerOffTimer);
+            self.powerOffTimer = undefined;
+        }
+        return;
+    }
+    if (self.powerOffTimer) return;
+    if (!self.ampSourceKnown() && trigger !== 'stopped') return;
+    var delayMs = self.config.get('powerOffDelay') * 60000;
+    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] evaluateIdlePowerOff (' + trigger + '): amp on Volumio input and Volumio ' + status + ', scheduling power-off in ' + self.config.get('powerOffDelay') + ' minute(s)');
+    self.powerOffTimer = setTimeout(() => {
+        self.powerOffTimer = undefined;
+        // Do not rely on the last received pushState: Volumio does not always push the
+        // final 'play' after a quick stop/play sequence (e.g. replacing the queue while
+        // playing), so self.volumioStatus can still say 'stop' while music is playing.
+        // Ask the state machine for the actual current state instead.
+        var currentStatus = self.getCurrentVolumioStatus();
+        if (!self.ampIsOnVolumioInput()) {
+            // The amp was switched to another source (e.g. tuner or CD-R): someone is
+            // listening to something else, so Volumio being paused is not "idle".
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but amp is on source ' + self.ampStatus.source + ' instead of the Volumio input - not powering off');
+        } else if (currentStatus !== 'play' && self.ampStatus.power == 'on') {
+            if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached (Volumio status: ' + currentStatus + '), powering off amp');
+            self.sendCommand('powerOff');
+        } else if (self.debugLogging) {
+            self.logger.info('[SERIALAMPCONTROLLER] powerOffTimer: idle timeout reached, but Volumio status is ' + currentStatus + ' and amp power is ' + self.ampStatus.power + ' - not powering off');
+        }
+    }, delayMs);
 }
 
 // Returns the actual current playback status ('play', 'pause', 'stop') from Volumio's state
@@ -378,6 +393,15 @@ serialampcontroller.prototype.getCurrentVolumioStatus = function () {
         self.logger.error('[SERIALAMPCONTROLLER] getCurrentVolumioStatus: could not get Volumio state: ' + err);
     }
     return (self.volumioStatus !== undefined) ? self.volumioStatus.status : undefined;
+}
+
+// True if both the amp's current input and the input code of the Volumio input are known.
+serialampcontroller.prototype.ampSourceKnown = function () {
+    var self = this;
+    if (self.ampStatus.source === undefined || self.selectedAmp === undefined ||
+        self.selectedAmp.sources === undefined || self.selectedAmp.sourceRespPostfix === undefined) return false;
+    var idx = self.selectedAmp.sources.indexOf(self.config.get('volumioInput'));
+    return (idx >= 0 && self.selectedAmp.sourceRespPostfix[idx] !== undefined);
 }
 
 // True if the amp is on the input Volumio is connected to, or if that cannot be determined
@@ -1118,6 +1142,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                     }
                     self.messageReceived.emit('power', 'on');
                     self.ampStatus.power='on';
+                    self.evaluateIdlePowerOff('amp power on');
                 })                
             }, 10000);
             break;
@@ -1216,8 +1241,8 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             //   model (5) + version (1) + data length (2 hex) + data (length) + checksum (2 hex)
             // Checksum = sum of the character codes from model up to and including data, mod 256.
             // Verified on an RX-V1500 (model "R0177"): in standby the data is 9 characters long,
-            // when the amp is on it is 138 characters, with the main zone volume at position 15-16
-            // (same hex scale as the volume reports).
+            // when the amp is on it is 138 characters, with the main zone input at position 9 and
+            // the main zone volume at position 15-16 (same hex scale as the volume reports).
             var body = (args[0] !== undefined) ? args[0] : '';
             var dataLen = parseInt(body.substr(6, 2), 16);
             var configData = isNaN(dataLen) ? '' : body.substr(8, dataLen);
@@ -1245,6 +1270,14 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
                     self.ampStatus.power = 'on';
                     self.messageReceived.emit('power', 'on');
                 }
+                // Position 9 = main zone input as one hex digit (same codes as the input report,
+                // cmd 21): verified 22-11-2026 with CD ('1') and CD-R ('3'). Position 11 is the
+                // audio select (cmd 22), 19-20 the DSP program (cmd 28).
+                var inputChar = configData.charAt(9);
+                if (/^[0-9A-F]$/i.test(inputChar)) {
+                    self.ampStatus.source = ('0' + inputChar).toUpperCase();
+                    if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: configuration report input: ' + self.ampStatus.source);
+                }
                 var volHex = parseInt(configData.substr(15, 2), 16);
                 if (!isNaN(volHex) && volHex >= 0x27 && volHex <= 0xE8) {
                     self.ampStatus.volume = (volHex - 199) / 2;
@@ -1258,6 +1291,7 @@ serialampcontroller.prototype.processResponse = function(response, ...args) {
             if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: unhandled response "' + response +'"');
             break;
     }
+    if (['respPowerOff', 'respSource', 'respYamahaConfig'].indexOf(response) >= 0) self.evaluateIdlePowerOff(response);
     if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] processResponse: Amp Status is now ' + JSON.stringify(self.ampStatus));
 };
 
