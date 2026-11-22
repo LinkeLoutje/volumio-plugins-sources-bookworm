@@ -326,8 +326,11 @@ serialampcontroller.prototype.activateSocketIO = function () {
             }
         }
         if ((self.volumioStatus !== undefined && self.volumioStatus.status == 'play') && (data.status == 'stop' || data.status == 'pause')) {
-            //status changed from play to stop/pause: (re)start the power-off-when-idle timer
-            if (self.config.get('powerOffOnStop') && self.ampStatus.power == 'on') {
+            //status changed from play to stop/pause: (re)start the power-off-when-idle timer.
+            //Also while the plugin is still powering the amp up for this playback: with the wake-up
+            //delay, power is only 'on' about 2 s after play, so a pause within those seconds would
+            //otherwise leave the amp on for good. The timer itself checks again that the amp is on.
+            if (self.config.get('powerOffOnStop') && (self.ampStatus.power == 'on' || self.ampStatus.Powering == 'up')) {
                 if (self.powerOffTimer) clearTimeout(self.powerOffTimer);
                 var delayMs = self.config.get('powerOffDelay') * 60000;
                 if (self.debugLogging) self.logger.info('[SERIALAMPCONTROLLER] on:pushState: playback stopped/paused, scheduling power-off in ' + self.config.get('powerOffDelay') + ' minute(s)');
